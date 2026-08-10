@@ -6,9 +6,12 @@ import type { RiskCoreClient } from './risk-core-client.js';
 import { SampleRiskCoreClient } from './risk-core-client.js';
 import {
   GenerateDailyReportInputSchema,
+  GetIncidentContextInputSchema,
   GetMarketSnapshotInputSchema,
   GetPositionRiskInputSchema,
+  GetSystemHealthInputSchema,
   ReconcileOrdersInputSchema,
+  SearchAuditEventsInputSchema,
   ToolDefinitions,
   ToolEnvelopeSchema,
   type ToolName,
@@ -25,10 +28,14 @@ export interface ServerOptions {
 }
 
 const metadata: Record<ToolName, { title: string; description: string }> = {
-  get_market_snapshot: { title: '获取行情快照', description: '读取指定标的不晚于 asOf 的快照、新鲜度、质量标记和证据。' },
-  get_position_risk: { title: '获取账户持仓风险', description: '读取授权账户的确定性敞口、PnL、保证金与六类限额结果。' },
-  reconcile_orders: { title: '订单成交对账', description: '只读比对 OMS 与券商订单成交，返回版本化差异和证据。' },
-  generate_daily_report: { title: '生成日报预览', description: '基于证据生成不落盘预览；正式草稿和审批仅通过 REST 工作流。' },
+  get_market_snapshot: { title: 'Get market snapshot', description: 'Read a versioned market snapshot with freshness, quality flags and evidence.' },
+  get_position_risk: { title: 'Get position risk', description: 'Read deterministic account exposure, PnL, margin and limit results.' },
+  reconcile_orders: { title: 'Reconcile orders', description: 'Read OMS and broker execution differences with evidence references.' },
+  generate_daily_report: { title: 'Generate daily report preview', description: 'Create a non-persistent report preview; governed drafts use REST workflows.' },
+  get_incident_context: { title: 'Get incident context', description: 'Read incident state, evidence ids and operational context.' },
+  get_system_health: { title: 'Get system health', description: 'Read AIOps platform health and open incident counts.' },
+  explain_reconciliation_breaks: { title: 'Explain reconciliation breaks', description: 'Read deterministic reconciliation differences with operational explanations.' },
+  search_audit_events: { title: 'Search audit events', description: 'Read append-only audit events by trace id or subject.' },
 };
 
 export function createFinancialRiskMcpServer(options: ServerOptions = {}): McpServer {
@@ -39,7 +46,8 @@ export function createFinancialRiskMcpServer(options: ServerOptions = {}): McpSe
   const scopes = options.authInfo?.scopes;
   const visible = (tool: ToolName) => !scopes || scopes.includes(ToolDefinitions[tool].scope);
   const common = (tool: ToolName) => ({
-    ...metadata[tool], outputSchema: ToolEnvelopeSchema,
+    ...metadata[tool],
+    outputSchema: ToolEnvelopeSchema,
     annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false, idempotentHint: true },
   });
   const result = async (tool: ToolName, input: unknown) => {
@@ -51,5 +59,9 @@ export function createFinancialRiskMcpServer(options: ServerOptions = {}): McpSe
   if (visible('get_position_risk')) server.registerTool('get_position_risk', { ...common('get_position_risk'), inputSchema: GetPositionRiskInputSchema }, (input) => result('get_position_risk', input));
   if (visible('reconcile_orders')) server.registerTool('reconcile_orders', { ...common('reconcile_orders'), inputSchema: ReconcileOrdersInputSchema }, (input) => result('reconcile_orders', input));
   if (visible('generate_daily_report')) server.registerTool('generate_daily_report', { ...common('generate_daily_report'), inputSchema: GenerateDailyReportInputSchema }, (input) => result('generate_daily_report', input));
+  if (visible('get_incident_context')) server.registerTool('get_incident_context', { ...common('get_incident_context'), inputSchema: GetIncidentContextInputSchema }, (input) => result('get_incident_context', input));
+  if (visible('get_system_health')) server.registerTool('get_system_health', { ...common('get_system_health'), inputSchema: GetSystemHealthInputSchema }, (input) => result('get_system_health', input));
+  if (visible('explain_reconciliation_breaks')) server.registerTool('explain_reconciliation_breaks', { ...common('explain_reconciliation_breaks'), inputSchema: ReconcileOrdersInputSchema }, (input) => result('explain_reconciliation_breaks', input));
+  if (visible('search_audit_events')) server.registerTool('search_audit_events', { ...common('search_audit_events'), inputSchema: SearchAuditEventsInputSchema }, (input) => result('search_audit_events', input));
   return server;
 }

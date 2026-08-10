@@ -21,7 +21,7 @@ describe('protected Streamable HTTP MCP', () => {
     try {
       await client.connect(transport);
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(4);
+      expect(tools).toHaveLength(8);
       const result = await client.callTool({ name: 'get_market_snapshot', arguments: { instrumentId: 'SSE:600519' } });
       expect(result.structuredContent).toMatchObject({ schemaVersion: '1.0', ok: true, meta: { tool: 'get_market_snapshot' } });
     } finally { await client.close(); }

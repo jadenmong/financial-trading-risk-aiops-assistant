@@ -44,7 +44,7 @@ export class ReferenceAuthenticator implements Authenticator {
     return {
       token,
       clientId: 'reference-console',
-      scopes: ['market:read', 'risk:read', 'reconciliation:read', 'report:preview', 'diagnosis:write', 'diagnosis:read', 'report:write', 'report:read', 'report:approve', 'audit:read'],
+      scopes: ['market:read', 'risk:read', 'reconciliation:read', 'report:preview', 'incident:read', 'system:read', 'audit:read', 'diagnosis:write', 'diagnosis:read', 'report:write', 'report:read', 'report:approve', 'evidence:read'],
       expiresAt: Math.floor(Date.now() / 1000) + 300,
       extra: { subject: 'reference-analyst', desks: ['DESK_ALPHA'], accounts: ['ACC_ALPHA_01', 'ACC_ALPHA_02'], roles: ['risk-analyst'] },
     };

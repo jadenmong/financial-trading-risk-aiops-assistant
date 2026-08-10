@@ -8,7 +8,7 @@ import pino from 'pino';
 
 import { NdjsonAuditSink } from './audit.js';
 import { JwtAuthenticator, ReferenceAuthenticator, type Authenticator } from './auth.js';
-import { loadConfig, type GatewayConfig } from './config.js';
+import { loadConfig, productionViolations, type GatewayConfig } from './config.js';
 import { validateHostAndOrigin } from './http-security.js';
 import { HttpRiskCoreClient, SampleRiskCoreClient, type RiskCoreClient } from './risk-core-client.js';
 import { createFinancialRiskMcpServer } from './server.js';
@@ -25,18 +25,25 @@ export interface AppDependencies {
 export function createApp(dependencies: AppDependencies = {}) {
   const config = dependencies.config ?? loadConfig();
   const authenticator = dependencies.authenticator ?? (config.referenceAuth ? new ReferenceAuthenticator() : new JwtAuthenticator(config));
-  const core = dependencies.core ?? (process.env.RISK_CORE_MODE === 'sample' ? new SampleRiskCoreClient() : new HttpRiskCoreClient(config.riskCoreUrl));
+  const core = dependencies.core ?? (config.riskCoreMode === 'sample' ? new SampleRiskCoreClient() : new HttpRiskCoreClient(config.riskCoreUrl));
   const tokenExchange = config.referenceAuth ? undefined : createTokenExchange(config);
   const audit = new NdjsonAuditSink(config.auditPath);
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '256kb', strict: true }));
   app.get('/health/live', (_request, response) => response.json({ status: 'UP' }));
-  app.get('/health/ready', (_request, response) => response.json({ status: 'UP', dependencies: { riskCore: 'configured' } }));
+  app.get('/health/ready', (_request, response) => {
+    const violations = productionViolations(config);
+    if (violations.length > 0) {
+      response.status(503).json({ status: 'DOWN', mode: config.runtimeMode, violations });
+      return;
+    }
+    response.json({ status: 'UP', mode: config.runtimeMode, dependencies: { riskCore: 'configured' } });
+  });
   app.get('/.well-known/oauth-protected-resource', (_request, response) => response.json({
     resource: config.resourceUrl,
     authorization_servers: [config.issuer],
-    scopes_supported: ['market:read', 'risk:read', 'reconciliation:read', 'report:preview'],
+    scopes_supported: ['market:read', 'risk:read', 'reconciliation:read', 'report:preview', 'incident:read', 'system:read', 'audit:read'],
     bearer_methods_supported: ['header'],
   }));
 

@@ -1,15 +1,18 @@
 global:
+  runtimeMode: reference
   imagePullSecrets: []
   secretName: risk-aiops-secrets
   oidcIssuer: https://identity.example.invalid/realms/risk-aiops
   otelEndpoint: http://otel-collector.observability.svc:4317
+  marketDataSource: reference
+  sourceMtlsRequired: "false"
 components:
   ai-gateway:
     image: { repository: ghcr.io/jadenmong/financial-trading-risk-aiops-assistant/ai-gateway, digest: "" }
     port: 3000
     health: { live: /health/live, ready: /health/ready }
     replicas: 2
-    scopes: [market:read, risk:read, reconciliation:read, report:preview]
+    scopes: [market:read, risk:read, reconciliation:read, report:preview, incident:read, system:read, audit:read]
     resources: { requests: { cpu: 200m, memory: 256Mi }, limits: { cpu: 1, memory: 512Mi } }
   risk-core:
     image: { repository: ghcr.io/jadenmong/financial-trading-risk-aiops-assistant/risk-core, digest: "" }

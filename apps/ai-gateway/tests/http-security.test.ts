@@ -12,6 +12,21 @@ describe('HTTP transport edge controls', () => {
     const response = await request(app).get('/.well-known/oauth-protected-resource');
     expect(response.status).toBe(200);
     expect(response.body.scopes_supported).toContain('market:read');
+    expect(response.body.scopes_supported).toContain('incident:read');
+  });
+
+  it('fails readiness when production still uses reference paths', async () => {
+    const unsafeConfig = GatewayConfigSchema.parse({
+      runtimeMode: 'production',
+      allowedHosts: ['localhost'],
+      allowedOrigins: ['http://localhost:5173'],
+      referenceAuth: true,
+      riskCoreMode: 'sample',
+      modelProvider: 'fake',
+    });
+    const response = await request(createApp({ config: unsafeConfig })).get('/health/ready');
+    expect(response.status).toBe(503);
+    expect(response.body.violations).toContain('REFERENCE_AUTH must be false');
   });
 
   it('rejects invalid Host and Origin before MCP handling', async () => {

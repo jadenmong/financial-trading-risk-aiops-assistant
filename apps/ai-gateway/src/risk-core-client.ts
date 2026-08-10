@@ -28,6 +28,10 @@ const paths: Record<ToolName, string> = {
   get_position_risk: '/internal/v1/position-risk/query',
   reconcile_orders: '/internal/v1/reconciliations/query',
   generate_daily_report: '/internal/v1/report-previews/query',
+  get_incident_context: '/internal/v1/incidents/context/query',
+  get_system_health: '/internal/v1/system-health/query',
+  explain_reconciliation_breaks: '/internal/v1/reconciliations/explain/query',
+  search_audit_events: '/internal/v1/audit-events/search/query',
 };
 
 export class HttpRiskCoreClient implements RiskCoreClient {
@@ -60,7 +64,11 @@ export class SampleRiskCoreClient implements RiskCoreClient {
     if (tool === 'get_market_snapshot') return this.market(input);
     if (tool === 'get_position_risk') return this.risk(input);
     if (tool === 'reconcile_orders') return this.reconciliation(input);
-    return this.report(input);
+    if (tool === 'generate_daily_report') return this.report(input);
+    if (tool === 'get_incident_context') return this.incidentContext(input);
+    if (tool === 'get_system_health') return this.systemHealth(input);
+    if (tool === 'explain_reconciliation_breaks') return this.reconciliationExplanation(input);
+    return this.auditSearch(input);
   }
 
   private result(type: string, data: Record<string, unknown>, qualityStatus: CoreResult['qualityStatus'] = 'GOOD'): CoreResult {
@@ -127,6 +135,58 @@ export class SampleRiskCoreClient implements RiskCoreClient {
         { type: 'STATUS_MISMATCH', severity: 'WARNING', orderId: 'OMS-A-1009', expected: 'FILLED', actual: 'PARTIALLY_FILLED', currency: 'CNY' },
       ],
     }, 'DEGRADED');
+  }
+
+  private incidentContext(input: Record<string, unknown>): CoreResult {
+    return this.result('incident-context', {
+      incidents: [
+        {
+          incidentId: input.incidentId ?? '90000000-0000-0000-0000-000000000001',
+          accountId: input.accountId ?? 'ACC_ALPHA_01',
+          severity: 'CRITICAL',
+          status: 'OPEN',
+          title: 'Margin utilization breach requires operations review',
+          evidenceId: 'ev_reference_incident_001',
+          createdAt: this.asOf,
+        },
+      ],
+    }, 'DEGRADED');
+  }
+
+  private systemHealth(input: Record<string, unknown>): CoreResult {
+    return this.result('system-health', {
+      overallStatus: 'UP',
+      component: input.component ?? 'platform',
+      openIncidents: 0,
+      readOnlyBoundary: true,
+    });
+  }
+
+  private reconciliationExplanation(input: Record<string, unknown>): CoreResult {
+    const base = this.reconciliation(input);
+    return this.result('reconciliation-explanation', {
+      accountId: input.accountId,
+      tradeDate: input.tradeDate,
+      summary: base.data.summary,
+      breaks: [
+        { type: 'DUPLICATE_EXECUTION', severity: 'CRITICAL', explanation: 'Broker execution id appears more than once in the immutable source feed.' },
+        { type: 'ORPHAN_EXECUTION', severity: 'CRITICAL', explanation: 'Broker execution has no matching OMS order id and needs operations review.' },
+      ],
+    }, 'DEGRADED');
+  }
+
+  private auditSearch(input: Record<string, unknown>): CoreResult {
+    return this.result('audit-search', {
+      events: [
+        {
+          traceId: input.traceId ?? '10000000000000000000000000000000',
+          subject: input.subject ?? 'reference-analyst',
+          action: 'get_position_risk',
+          outcome: 'success',
+          eventHash: '0'.repeat(64),
+        },
+      ],
+    });
   }
 
   private report(input: Record<string, unknown>): CoreResult {

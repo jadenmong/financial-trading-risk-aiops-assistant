@@ -24,8 +24,12 @@ spec:
           imagePullPolicy: IfNotPresent
           ports: [{ name: http, containerPort: {{ $component.port }} }]
           env:
+            - { name: APP_RUNTIME_MODE, value: {{ $.Values.global.runtimeMode | quote }} }
             - { name: OIDC_ISSUER, value: {{ $.Values.global.oidcIssuer | quote }} }
             - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ $.Values.global.otelEndpoint | quote }} }
+            - { name: MARKET_DATA_SOURCE, value: {{ $.Values.global.marketDataSource | quote }} }
+            - { name: REQUIRE_SOURCE_MTLS, value: {{ $.Values.global.sourceMtlsRequired | quote }} }
+            - { name: SERVER_SSL_CLIENT_AUTH, value: {{ ternary "need" "none" (eq ($.Values.global.sourceMtlsRequired | toString) "true") | quote }} }
           envFrom: [{ secretRef: { name: {{ $.Values.global.secretName }} } }]
           securityContext:
             allowPrivilegeEscalation: false

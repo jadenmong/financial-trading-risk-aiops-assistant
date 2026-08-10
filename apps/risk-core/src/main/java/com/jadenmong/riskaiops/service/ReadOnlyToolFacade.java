@@ -30,11 +30,13 @@ public class ReadOnlyToolFacade {
     private final HashChainAuditService audit;
     private final RlsSessionService rls;
     private final ReconciliationDataRepository reconciliationData;
+    private final IncidentService incidents;
 
     public ReadOnlyToolFacade(RiskDataRepository data, RiskCalculationService risk, ReconciliationService reconciliation,
                               EvidenceService evidence, HashChainAuditService audit, RlsSessionService rls,
-                              ReconciliationDataRepository reconciliationData) {
+                              ReconciliationDataRepository reconciliationData, IncidentService incidents) {
         this.data = data; this.risk = risk; this.reconciliation = reconciliation; this.evidence = evidence; this.audit = audit; this.rls = rls; this.reconciliationData = reconciliationData;
+        this.incidents = incidents;
     }
 
     @Transactional
@@ -95,6 +97,67 @@ public class ReadOnlyToolFacade {
                     Map.of("title", "对账摘要", "status", "CRITICAL", "summary", "发现重复、孤立或字段差异，须人工复核。")));
             output.put("disclaimer", "虚构数据；仅用于运维诊断，不构成投资建议。正式草稿与审批必须使用 REST 工作流。");
             return new Result(output, "DEGRADED", positionSet.observedAt(), positionSet.dataVersion(), "daily-report-preview");
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public ToolEnvelope<?> incidentContext(String incidentId, String accountId, String subject, String traceId) {
+        Map<String, Object> input = new LinkedHashMap<>();
+        if (incidentId != null) input.put("incidentId", incidentId);
+        if (accountId != null) input.put("accountId", accountId);
+        return execute("get_incident_context", input, subject, traceId, () -> {
+            Object data = incidentId == null ? incidents.list(accountId, 50) : incidents.get(incidentId);
+            return new Result(Map.of("incidents", data), "GOOD", Instant.now(), "ops-incidents-v1", "incident-context");
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public ToolEnvelope<?> systemHealth(String component, String subject, String traceId) {
+        Map<String, Object> input = component == null ? Map.of() : Map.of("component", component);
+        return execute("get_system_health", input, subject, traceId, () -> {
+            var open = incidents.list(null, 100).stream().filter(item -> item.status() != IncidentService.Status.CLOSED).toList();
+            boolean critical = open.stream().anyMatch(item -> item.severity() == IncidentService.Severity.CRITICAL);
+            Map<String, Object> output = new LinkedHashMap<>();
+            output.put("overallStatus", critical ? "DEGRADED" : "UP");
+            output.put("component", component == null ? "platform" : component);
+            output.put("openIncidents", open.size());
+            output.put("readOnlyBoundary", true);
+            return new Result(output, critical ? "DEGRADED" : "GOOD", Instant.now(), "system-health-v1", "system-health");
+        });
+    }
+
+    @Transactional
+    public ToolEnvelope<?> explainReconciliationBreaks(String accountId, LocalDate tradeDate, String subject, String traceId) {
+        rls.authorize(accountId);
+        return execute("explain_reconciliation_breaks", Map.of("accountId", accountId, "tradeDate", tradeDate.toString()), subject, traceId, () -> {
+            ReconciliationResult result = reconciliation.reconcile(accountId, tradeDate.toString(), reconciliationData.orders(accountId, tradeDate), reconciliationData.executions(accountId, tradeDate));
+            List<Map<String, Object>> explanations = result.differences().stream().map(difference -> {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("type", difference.type());
+                row.put("severity", difference.severity());
+                row.put("orderId", difference.orderId());
+                row.put("executionId", difference.executionId());
+                row.put("explanation", "Deterministic OMS/broker reconciliation break; operations review is required before any external correction.");
+                return row;
+            }).toList();
+            return new Result(Map.of("accountId", accountId, "tradeDate", tradeDate, "summary", result.summary(), "breaks", explanations),
+                    explanations.isEmpty() ? "GOOD" : "DEGRADED", Instant.now(), "order-reconciliation-v1", "reconciliation-explanation");
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public ToolEnvelope<?> searchAuditEvents(String traceIdFilter, String subjectFilter, int limit, String subject, String traceId) {
+        Map<String, Object> input = new LinkedHashMap<>();
+        if (traceIdFilter != null) input.put("traceId", traceIdFilter);
+        if (subjectFilter != null) input.put("subject", subjectFilter);
+        input.put("limit", limit);
+        return execute("search_audit_events", input, subject, traceId, () -> {
+            List<HashChainAuditService.AuditEvent> rows = audit.list().stream()
+                    .filter(event -> traceIdFilter == null || traceIdFilter.equals(event.traceId()))
+                    .filter(event -> subjectFilter == null || subjectFilter.equals(event.subject()))
+                    .limit(Math.max(1, Math.min(limit, 200)))
+                    .toList();
+            return new Result(Map.of("events", rows), "GOOD", Instant.now(), "audit-events-v1", "audit-search");
         });
     }
 

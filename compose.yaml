@@ -29,7 +29,10 @@ services:
   risk-core:
     build: { context: ., dockerfile: apps/risk-core/Dockerfile }
     environment:
+      APP_RUNTIME_MODE: reference
       SPRING_PROFILES_ACTIVE: reference
+      MARKET_DATA_SOURCE: reference
+      REQUIRE_SOURCE_MTLS: "false"
       DATABASE_URL: jdbc:postgresql://postgres:5432/risk_aiops
       OIDC_ISSUER: http://keycloak:8080/realms/risk-aiops
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
@@ -46,6 +49,7 @@ services:
     build: { context: ., dockerfile: apps/ai-gateway/Dockerfile }
     environment:
       NODE_ENV: production
+      APP_RUNTIME_MODE: reference
       GATEWAY_PORT: 3000
       REFERENCE_AUTH: "true"
       RISK_CORE_URL: http://risk-core:8080

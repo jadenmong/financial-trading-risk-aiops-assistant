@@ -1,2 +1,43 @@
-<script setup lang="ts">const positions=[{instrument:'SSE:600519',side:'LONG',quantity:'30000.0000000000',exposure:'42937500.0000000000',pnl:'937500.0000000000'},{instrument:'CFFEX:IF2608',side:'SHORT',quantity:'100.0000000000',exposure:'-120084000.0000000000',pnl:'216000.0000000000'}];</script>
-<template><h1 class="page-title">账户风险</h1><p class="page-subtitle">所有金额按十进制字符串展示，计算来自 Java BigDecimal</p><div class="metric-grid"><div class="metric"><span>总敞口 CNY</span><strong>174,797,500</strong></div><div class="metric"><span>净敞口 CNY</span><strong>-65,370,500</strong></div><div class="metric"><span>杠杆</span><strong>2.4971</strong></div><div class="metric"><span>保证金利用率</span><strong class="critical">72.05%</strong></div></div><div class="panel"><h3>持仓与证据</h3><el-table :data="positions"><el-table-column prop="instrument" label="标的"/><el-table-column prop="side" label="方向"/><el-table-column prop="quantity" label="数量"/><el-table-column prop="exposure" label="Delta 等价敞口"/><el-table-column prop="pnl" label="未实现盈亏"/></el-table></div></template>
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { getRiskSnapshot, type RiskSnapshot, type ToolEnvelope } from '../api/operations.js';
+
+const snapshot = ref<ToolEnvelope<RiskSnapshot>>();
+const error = ref('');
+
+onMounted(async () => {
+  try { snapshot.value = await getRiskSnapshot(); }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : 'API unavailable'; }
+});
+</script>
+
+<template>
+  <h1 class="page-title">Account Risk</h1>
+  <p class="page-subtitle">Financial values are displayed as decimal strings from deterministic backend computation.</p>
+  <el-alert v-if="error" type="error" :title="error" show-icon class="panel-alert" />
+  <div class="metric-grid">
+    <div class="metric"><span>Gross exposure</span><strong>{{ snapshot?.data?.grossExposure ?? '--' }}</strong></div>
+    <div class="metric"><span>Net exposure</span><strong>{{ snapshot?.data?.netExposure ?? '--' }}</strong></div>
+    <div class="metric"><span>Leverage</span><strong>{{ snapshot?.data?.leverage ?? '--' }}</strong></div>
+    <div class="metric"><span>Margin utilization</span><strong class="critical">{{ snapshot?.data?.marginUtilization ?? '--' }}</strong></div>
+  </div>
+  <div class="panel">
+    <h3>Positions</h3>
+    <el-table :data="snapshot?.data?.positions ?? []" empty-text="No positions returned by API">
+      <el-table-column prop="instrumentId" label="Instrument" width="180" />
+      <el-table-column prop="side" label="Side" width="100" />
+      <el-table-column prop="quantity" label="Quantity" width="180" />
+      <el-table-column prop="marketValue" label="Market value" />
+      <el-table-column prop="unrealizedPnl" label="Unrealized PnL" />
+    </el-table>
+  </div>
+  <div class="panel">
+    <h3>Limit breaches</h3>
+    <el-table :data="snapshot?.data?.limitBreaches ?? []" empty-text="No breaches returned by API">
+      <el-table-column prop="limitCode" label="Limit" />
+      <el-table-column prop="severity" label="Severity" width="120" />
+      <el-table-column prop="actual" label="Actual" />
+      <el-table-column prop="limit" label="Limit value" />
+    </el-table>
+  </div>
+</template>

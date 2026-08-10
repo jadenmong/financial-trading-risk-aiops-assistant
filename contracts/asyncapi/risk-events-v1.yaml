@@ -8,7 +8,12 @@ channels:
   positionSnapshot: { address: position.snapshot.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
   orderEvent: { address: order.event.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
   executionEvent: { address: execution.event.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  orderLifecycle: { address: order.lifecycle.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  executionReport: { address: execution.report.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  riskLimit: { address: risk.limit.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
   riskBreach: { address: risk.breach.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  systemHealth: { address: system.health.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  incidentSignal: { address: incident.signal.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
   agentRun: { address: agent.run.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
   reportLifecycle: { address: report.lifecycle.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
   opsAudit: { address: ops.audit.v1, messages: { event: { $ref: '#/components/messages/Event' } } }

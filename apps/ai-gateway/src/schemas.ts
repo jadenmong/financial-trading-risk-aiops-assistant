@@ -27,6 +27,21 @@ export const GenerateDailyReportInputSchema = z.object({
   diagnosisRunId: z.uuid().optional(),
 }).strict();
 
+export const GetIncidentContextInputSchema = z.object({
+  incidentId: z.uuid().optional(),
+  accountId: AccountIdSchema.optional(),
+}).strict();
+
+export const GetSystemHealthInputSchema = z.object({
+  component: z.string().regex(/^[A-Za-z0-9_.:-]{1,64}$/).optional(),
+}).strict();
+
+export const SearchAuditEventsInputSchema = z.object({
+  traceId: z.string().regex(/^[0-9a-f]{32}$/).optional(),
+  subject: z.string().regex(/^[A-Za-z0-9_.:@-]{1,128}$/).optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+}).strict();
+
 export const EvidenceRefSchema = z.object({
   evidenceId: z.string().min(1),
   type: z.string().min(1),
@@ -68,4 +83,8 @@ export const ToolDefinitions = {
   get_position_risk: { input: GetPositionRiskInputSchema, scope: 'risk:read' },
   reconcile_orders: { input: ReconcileOrdersInputSchema, scope: 'reconciliation:read' },
   generate_daily_report: { input: GenerateDailyReportInputSchema, scope: 'report:preview' },
+  get_incident_context: { input: GetIncidentContextInputSchema, scope: 'incident:read' },
+  get_system_health: { input: GetSystemHealthInputSchema, scope: 'system:read' },
+  explain_reconciliation_breaks: { input: ReconcileOrdersInputSchema, scope: 'reconciliation:read' },
+  search_audit_events: { input: SearchAuditEventsInputSchema, scope: 'audit:read' },
 } as const;

@@ -49,7 +49,17 @@ public class HashChainAuditService {
         events.add(event); return event;
     }
 
-    public synchronized List<AuditEvent> list() { return List.copyOf(events); }
+    public synchronized List<AuditEvent> list() {
+        if (persistentMapper != null) {
+            return persistentMapper.listRecent(200).stream()
+                    .map(row -> new AuditEvent(row.eventId(), row.occurredAt(), row.subject(), row.clientId(),
+                            row.scopesCsv() == null || row.scopesCsv().isBlank() ? List.of() : List.of(row.scopesCsv().split(",")),
+                            row.action(), row.resource(), row.inputHash(), row.outputHash(), row.outcome(),
+                            row.errorCode(), row.traceId(), row.previousHash(), row.eventHash()))
+                    .toList();
+        }
+        return List.copyOf(events);
+    }
     public synchronized boolean verify() {
         String previous = "0".repeat(64);
         for (AuditEvent event : events) {

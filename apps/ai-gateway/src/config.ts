@@ -4,6 +4,7 @@ const booleanFromString = z.enum(['true', 'false']).transform((value) => value =
 
 export const GatewayConfigSchema = z.object({
   nodeEnv: z.enum(['development', 'test', 'production']).default('development'),
+  runtimeMode: z.enum(['reference', 'staging', 'production']).default('reference'),
   port: z.coerce.number().int().min(1).max(65535).default(3000),
   riskCoreUrl: z.url().default('http://localhost:8080'),
   issuer: z.url().default('http://localhost:8081/realms/risk-aiops'),
@@ -16,6 +17,8 @@ export const GatewayConfigSchema = z.object({
   allowedHosts: z.array(z.string().min(1)).min(1),
   allowedOrigins: z.array(z.string().min(1)).min(1),
   referenceAuth: z.boolean().default(false),
+  modelProvider: z.string().min(1).default('fake'),
+  riskCoreMode: z.string().min(1).default('http'),
   auditPath: z.string().min(1).default('runtime/gateway-audit.ndjson'),
   rateLimitWindowMs: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
   rateLimitMax: z.coerce.number().int().min(1).max(100_000).default(120),
@@ -30,6 +33,7 @@ function csv(value: string | undefined, fallback: string[]): string[] {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
   return GatewayConfigSchema.parse({
     nodeEnv: env.NODE_ENV,
+    runtimeMode: env.APP_RUNTIME_MODE,
     port: env.GATEWAY_PORT,
     riskCoreUrl: env.RISK_CORE_URL,
     issuer: env.OIDC_ISSUER,
@@ -42,8 +46,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     allowedHosts: csv(env.MCP_ALLOWED_HOSTS, ['localhost', '127.0.0.1']),
     allowedOrigins: csv(env.MCP_ALLOWED_ORIGINS, ['http://localhost:5173']),
     referenceAuth: booleanFromString.parse(env.REFERENCE_AUTH ?? 'false'),
+    modelProvider: env.MODEL_PROVIDER,
+    riskCoreMode: env.RISK_CORE_MODE,
     auditPath: env.AUDIT_PATH,
     rateLimitWindowMs: env.MCP_RATE_LIMIT_WINDOW_MS,
     rateLimitMax: env.MCP_RATE_LIMIT_MAX,
   });
+}
+
+export function productionViolations(config: GatewayConfig): string[] {
+  if (config.runtimeMode !== 'production') return [];
+  const violations: string[] = [];
+  if (config.referenceAuth) violations.push('REFERENCE_AUTH must be false');
+  if (config.riskCoreMode === 'sample') violations.push('RISK_CORE_MODE=sample is forbidden');
+  if (config.modelProvider === 'fake') violations.push('MODEL_PROVIDER=fake is forbidden');
+  if (!config.gatewayClientSecret) violations.push('GATEWAY_CLIENT_SECRET is required');
+  if (config.issuer.includes('localhost') || config.issuer.includes('127.0.0.1')) violations.push('OIDC issuer must not be localhost');
+  if (config.auditPath.startsWith('runtime/')) violations.push('AUDIT_PATH must point at managed persistent storage');
+  if (config.allowedHosts.some((host) => ['localhost', '127.0.0.1'].includes(host))) violations.push('localhost allowed host is forbidden');
+  if (config.allowedOrigins.some((origin) => origin.includes('localhost') || origin.includes('127.0.0.1'))) violations.push('localhost allowed origin is forbidden');
+  return violations;
 }

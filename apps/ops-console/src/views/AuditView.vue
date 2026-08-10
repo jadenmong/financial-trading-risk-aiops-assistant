@@ -1,2 +1,27 @@
-<script setup lang="ts">const events=[{time:'2026-08-07T07:00:01Z',subject:'risk-analyst-a',action:'get_position_risk',result:'success',hash:'93bc…e782'},{time:'2026-08-07T07:00:09Z',subject:'report-approver-b',action:'report.decision',result:'success',hash:'e782…08af'}];</script>
-<template><h1 class="page-title">审计查询</h1><p class="page-subtitle">append-only 哈希链 · 按 desk/account 权限过滤</p><div class="panel"><el-table :data="events"><el-table-column prop="time" label="时间"/><el-table-column prop="subject" label="主体"/><el-table-column prop="action" label="操作"/><el-table-column prop="result" label="结果"/><el-table-column prop="hash" label="事件哈希"/></el-table></div></template>
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { listAuditEvents, type AuditEvent } from '../api/operations.js';
+
+const events = ref<AuditEvent[]>([]);
+const error = ref('');
+
+onMounted(async () => {
+  try { events.value = await listAuditEvents(); }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : 'API unavailable'; }
+});
+</script>
+
+<template>
+  <h1 class="page-title">Audit Search</h1>
+  <p class="page-subtitle">Append-only audit events with hash-chain verification fields.</p>
+  <el-alert v-if="error" type="error" :title="error" show-icon class="panel-alert" />
+  <div class="panel">
+    <el-table :data="events" empty-text="No audit events returned by API">
+      <el-table-column prop="occurredAt" label="Time" width="230" />
+      <el-table-column prop="subject" label="Subject" width="180" />
+      <el-table-column prop="action" label="Action" width="220" />
+      <el-table-column prop="outcome" label="Outcome" width="120" />
+      <el-table-column prop="eventHash" label="Event hash" />
+    </el-table>
+  </div>
+</template>

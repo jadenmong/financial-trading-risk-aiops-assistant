@@ -1,2 +1,50 @@
-<script setup lang="ts">const reports=[{id:'report-demo-001',account:'ACC_ALPHA_01',creator:'risk-analyst-a',status:'DRAFT',version:'1'},{id:'report-demo-002',account:'ACC_ALPHA_02',creator:'trading-ops-b',status:'APPROVED',version:'2'}];</script>
-<template><h1 class="page-title">报告草稿与双人审批</h1><p class="page-subtitle">创建者不能批准自己的报告；批准内容不可修改并写入内容哈希</p><div class="panel"><el-table :data="reports"><el-table-column prop="id" label="报告"/><el-table-column prop="account" label="账户"/><el-table-column prop="creator" label="创建者"/><el-table-column prop="status" label="状态"/><el-table-column prop="version" label="版本"/><el-table-column label="操作"><template #default="scope"><el-button :disabled="scope.row.status!=='DRAFT'" type="primary" size="small">独立审批</el-button></template></el-table-column></el-table></div></template>
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { api } from '../api/client.js';
+import { listReports, type Report } from '../api/operations.js';
+
+const reports = ref<Report[]>([]);
+const error = ref('');
+
+async function refresh() {
+  reports.value = await listReports();
+}
+
+async function approve(row: Report) {
+  try {
+    await api(`/api/v1/reports/${row.id}/decisions`, {
+      method: 'POST',
+      headers: { 'If-Match': String(row.version) },
+      body: JSON.stringify({ decision: 'APPROVE', reason: 'Reviewed in operations console' }),
+    });
+    await refresh();
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Approval failed';
+  }
+}
+
+onMounted(async () => {
+  try { await refresh(); }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : 'API unavailable'; }
+});
+</script>
+
+<template>
+  <h1 class="page-title">Governed Reports</h1>
+  <p class="page-subtitle">Draft and approval workflow with maker-checker, optimistic locking and immutable report content.</p>
+  <el-alert v-if="error" type="error" :title="error" show-icon class="panel-alert" />
+  <div class="panel">
+    <el-table :data="reports" empty-text="No reports returned by API">
+      <el-table-column prop="id" label="Report" width="300" />
+      <el-table-column prop="accountId" label="Account" width="150" />
+      <el-table-column prop="creator" label="Creator" width="180" />
+      <el-table-column prop="status" label="Status" width="120" />
+      <el-table-column prop="version" label="Version" width="100" />
+      <el-table-column label="Action" width="160">
+        <template #default="{ row }">
+          <el-button :disabled="row.status !== 'DRAFT'" type="primary" size="small" @click="approve(row)">Approve</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+  </div>
+</template>

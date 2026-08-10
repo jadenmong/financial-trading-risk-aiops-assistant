@@ -43,6 +43,10 @@ paths:
           description: Server-sent state transitions
           content: { text/event-stream: { schema: { type: string } } }
   /api/v1/reports:
+    get:
+      operationId: listReports
+      security: [{ oidc: [report:read] }]
+      responses: { '200': { description: Governed report list } }
     post:
       operationId: createReportDraft
       security: [{ oidc: [report:write] }]
@@ -73,6 +77,94 @@ paths:
       operationId: listAuditEvents
       security: [{ oidc: [audit:read] }]
       responses: { '200': { description: Authorized append-only audit events } }
+  /api/v1/risk-snapshots:
+    get:
+      operationId: getRiskSnapshot
+      security: [{ oidc: [risk:read] }]
+      parameters:
+        - in: query
+          name: accountId
+          required: true
+          schema: { type: string, pattern: '^[A-Z0-9_-]{1,64}$' }
+        - in: query
+          name: asOf
+          schema: { type: string, format: date-time }
+      responses: { '200': { description: Read-only risk snapshot envelope } }
+  /api/v1/reconciliation-breaks:
+    get:
+      operationId: getReconciliationBreaks
+      security: [{ oidc: [reconciliation:read] }]
+      parameters:
+        - in: query
+          name: accountId
+          required: true
+          schema: { type: string, pattern: '^[A-Z0-9_-]{1,64}$' }
+        - in: query
+          name: tradeDate
+          required: true
+          schema: { type: string, format: date }
+      responses: { '200': { description: Read-only OMS/broker reconciliation breaks } }
+  /api/v1/evidence/{id}:
+    get:
+      operationId: getEvidence
+      security: [{ oidc: [evidence:read] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, minLength: 4, maxLength: 128 }
+      responses:
+        '200': { description: Stored evidence document }
+        '404': { description: Not found }
+  /api/v1/incidents:
+    get:
+      operationId: listIncidents
+      security: [{ oidc: [incident:read] }]
+      parameters:
+        - in: query
+          name: accountId
+          schema: { type: string, pattern: '^[A-Z0-9_-]{1,64}$' }
+      responses: { '200': { description: Authorized incidents } }
+    post:
+      operationId: createIncident
+      security: [{ oidc: [incident:write] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateIncident' }
+      responses: { '201': { description: Incident created } }
+  /api/v1/incidents/{id}/ack:
+    post:
+      operationId: acknowledgeIncident
+      security: [{ oidc: [incident:write] }]
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses: { '200': { description: Incident acknowledged } }
+  /api/v1/incidents/{id}/close:
+    post:
+      operationId: closeIncident
+      security: [{ oidc: [incident:write] }]
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CloseIncident' }
+      responses: { '200': { description: Incident closed } }
+  /internal/v1/events:
+    post:
+      operationId: ingestSourceEvent
+      description: Internal read-only data ingress. Production requires source mTLS and ingest:write scope.
+      security: [{ oidc: [ingest:write] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventEnvelope' }
+      responses:
+        '202': { description: Event accepted for replay processing }
+        '400': { description: Invalid event envelope }
+        '403': { description: Source mTLS required }
 components:
   securitySchemes:
     oidc:
@@ -96,3 +188,32 @@ components:
       properties:
         accountId: { type: string, pattern: '^[A-Z0-9_-]{1,64}$' }
         tradeDate: { type: string, format: date }
+    CreateIncident:
+      type: object
+      additionalProperties: false
+      required: [severity, title]
+      properties:
+        accountId: { type: string, pattern: '^[A-Z0-9_-]{1,64}$' }
+        severity: { type: string, enum: [INFO, WARNING, CRITICAL] }
+        title: { type: string, minLength: 1, maxLength: 256 }
+    CloseIncident:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    EventEnvelope:
+      type: object
+      additionalProperties: false
+      required: [eventId, schemaVersion, eventType, source, sourceTimestamp, publishedAt, partitionKey, payload]
+      properties:
+        eventId: { type: string, format: uuid }
+        schemaVersion: { type: string, enum: ['1.0'] }
+        eventType:
+          type: string
+          enum: [market.snapshot.v1, position.snapshot.v1, order.lifecycle.v1, execution.report.v1, risk.limit.v1, system.health.v1, incident.signal.v1]
+        source: { type: string, minLength: 1, maxLength: 128 }
+        sourceTimestamp: { type: string, format: date-time }
+        publishedAt: { type: string, format: date-time }
+        partitionKey: { type: string, minLength: 1, maxLength: 256 }
+        payload: { type: object }
