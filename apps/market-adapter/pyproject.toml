@@ -5,7 +5,7 @@ description = "Optional public-market-data-only adapter; never a trading or posi
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.115.12",
-  "pydantic==2.11.7",
+  "pydantic==2.13.4",
   "uvicorn==0.34.3"
 ]
 
