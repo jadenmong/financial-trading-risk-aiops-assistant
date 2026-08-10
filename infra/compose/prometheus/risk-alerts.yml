@@ -1,0 +1,24 @@
+groups:
+  - name: risk-aiops
+    rules:
+      - alert: AuditWriteFailure
+        expr: increase(risk_aiops_audit_write_failures_total[5m]) > 0
+        for: 0m
+        labels: { severity: critical }
+        annotations: { summary: "Audit persistence failed; protected traffic should be blocked" }
+      - alert: MarketDataStale
+        expr: risk_aiops_market_data_age_seconds > 60
+        for: 1m
+        labels: { severity: warning }
+      - alert: RedpandaConsumerLag
+        expr: risk_aiops_consumer_lag > 1000
+        for: 5m
+        labels: { severity: warning }
+      - alert: ModelProviderCircuitOpen
+        expr: risk_aiops_model_circuit_open == 1
+        for: 0m
+        labels: { severity: warning }
+      - alert: DeterministicApiP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m]))) > 0.5
+        for: 10m
+        labels: { severity: warning }

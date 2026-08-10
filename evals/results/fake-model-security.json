@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "provider": "deterministic-fake-v1",
+  "generatedAt": "2026-08-10T06:23:12.400Z",
+  "cases": 100,
+  "authorizationDenied": 50,
+  "injectionRejected": 50,
+  "leakage": 0,
+  "targets": {
+    "toolSelectionAccuracy": 0.95,
+    "structuredOutputRate": 0.99,
+    "numericEvidenceConsistency": 1,
+    "dataLeakage": 0
+  },
+  "result": "PASS"
+}

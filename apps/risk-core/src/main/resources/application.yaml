@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: risk-core
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/risk_aiops}
+    username: ${DATABASE_USER:risk_app}
+    password: ${DATABASE_PASSWORD:reference-only}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    schemas: reference,trading,risk,ops,ai,audit
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER:http://localhost:8081/realms/risk-aiops}
+management:
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  tracing:
+    sampling:
+      probability: 1.0
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+server:
+  port: ${RISK_CORE_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+app:
+  reference-mode: ${REFERENCE_MODE:false}
+  jwt-audience: ${RISK_CORE_AUDIENCE:risk-core}
+  market-freshness-seconds: 60
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:}
+    secret-key: ${MINIO_SECRET_KEY:}
+    report-bucket: ${MINIO_REPORT_BUCKET:risk-reports}
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+logging:
+  structured:
+    format:
+      console: logstash

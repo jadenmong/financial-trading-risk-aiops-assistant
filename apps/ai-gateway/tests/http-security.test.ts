@@ -1,0 +1,27 @@
+import request from 'supertest';
+import { describe, expect, it } from 'vitest';
+
+import { GatewayConfigSchema } from '../src/config.js';
+import { createApp } from '../src/http.js';
+
+const config = GatewayConfigSchema.parse({ allowedHosts: ['localhost'], allowedOrigins: ['http://localhost:5173'], referenceAuth: true });
+const app = createApp({ config });
+
+describe('HTTP transport edge controls', () => {
+  it('publishes OAuth protected resource metadata', async () => {
+    const response = await request(app).get('/.well-known/oauth-protected-resource');
+    expect(response.status).toBe(200);
+    expect(response.body.scopes_supported).toContain('market:read');
+  });
+
+  it('rejects invalid Host and Origin before MCP handling', async () => {
+    expect((await request(app).post('/mcp').set('Host', 'evil.example').send({})).status).toBe(403);
+    expect((await request(app).post('/mcp').set('Host', 'localhost').set('Origin', 'https://evil.example').send({})).status).toBe(403);
+  });
+
+  it('returns a resource metadata challenge when token is absent', async () => {
+    const response = await request(app).post('/mcp').set('Host', 'localhost').send({});
+    expect(response.status).toBe(401);
+    expect(response.headers['www-authenticate']).toContain('resource_metadata');
+  });
+});

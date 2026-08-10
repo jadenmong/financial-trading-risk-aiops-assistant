@@ -1,0 +1,32 @@
+# Dependency and build products
+node_modules/
+dist/
+target/
+.vite/
+coverage/
+*.tsbuildinfo
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+
+# Runtime state and secrets
+runtime/*
+!runtime/.gitkeep
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Test/deployment output
+reports/
+load-tests/results/
+docs/evidence/generated/

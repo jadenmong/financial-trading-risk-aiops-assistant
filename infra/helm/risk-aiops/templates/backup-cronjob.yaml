@@ -1,0 +1,36 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: risk-aiops-backups }
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.backup.storageClassName }}
+  storageClassName: {{ .Values.backup.storageClassName | quote }}
+  {{- end }}
+  resources: { requests: { storage: {{ .Values.backup.size }} } }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: risk-aiops-postgres-backup }
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext: { runAsNonRoot: true, runAsUser: 999, seccompProfile: { type: RuntimeDefault } }
+          containers:
+            - name: backup
+              image: {{ .Values.backup.postgresImage | quote }}
+              command: [sh, -ec, "pg_dump --format=custom --file=/backup/risk-aiops.dump $DATABASE_URL"]
+              envFrom: [{ secretRef: { name: {{ .Values.global.secretName }} } }]
+              securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+              volumeMounts: [{ name: backup, mountPath: /backup }, { name: tmp, mountPath: /tmp }]
+          volumes: [{ name: backup, persistentVolumeClaim: { claimName: risk-aiops-backups } }, { name: tmp, emptyDir: {} }]
+{{- end }}

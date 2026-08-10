@@ -1,0 +1,2 @@
+<script setup lang="ts">const states=['QUEUED','TRIAGE','MARKET / RISK / RECONCILIATION','EVIDENCE_VERIFY','REPORT_SYNTHESIS','POLICY_CHECK','COMPLETED'];</script>
+<template><h1 class="page-title">Agent 诊断时间线</h1><p class="page-subtitle">固定 DAG · fake-model · 9 steps / 1 model call / $0.020000</p><div class="panel"><el-timeline><el-timeline-item v-for="(state,index) in states" :key="state" :timestamp="`07:00:${String(index).padStart(2,'0')}Z`" :type="index===states.length-1?'success':'primary'">{{ state }}</el-timeline-item></el-timeline></div></template>

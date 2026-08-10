@@ -1,0 +1,46 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request: {}
+permissions: { contents: read }
+jobs:
+  node-java-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21, cache: maven }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:node
+      - run: npm run build:node
+      - run: bash apps/risk-core/mvnw -B test
+      - run: node scripts/verify-contracts.mjs
+      - run: node scripts/verify-image-lock.mjs
+      - run: node evals/run-evals.mjs
+      - uses: azure/setup-helm@v4
+      - run: >-
+          helm lint infra/helm/risk-aiops
+          --set components.ai-gateway.image.digest=sha256:1111111111111111111111111111111111111111111111111111111111111111
+          --set components.risk-core.image.digest=sha256:2222222222222222222222222222222222222222222222222222222222222222
+          --set components.ops-console.image.digest=sha256:3333333333333333333333333333333333333333333333333333333333333333
+      - uses: actions/upload-artifact@v4
+        with: { name: fake-model-eval, path: evals/results/fake-model-security.json }
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: pip, cache-dependency-path: apps/market-adapter/requirements.lock }
+      - run: pip install -r requirements.lock httpx==0.28.1 pytest==8.4.1
+        working-directory: apps/market-adapter
+      - run: pytest
+        working-directory: apps/market-adapter
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose build ai-gateway risk-core ops-console

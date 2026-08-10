@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jadenmong/financial-trading-risk-aiops-assistant/contracts/tool-envelope-v1.json",
+  "title": "MCP tool response envelope v1",
+  "type": "object",
+  "required": ["schemaVersion", "ok", "meta"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "ok": { "type": "boolean" },
+    "data": { "type": "object" },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["requestId", "traceId", "tool", "toolVersion", "dataVersion", "qualityStatus", "subject", "generatedAt", "evidenceRefs"],
+      "properties": {
+        "requestId": { "type": "string", "format": "uuid" },
+        "traceId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "tool": { "type": "string" },
+        "toolVersion": { "const": "1.0.0" },
+        "dataVersion": { "type": "string" },
+        "dataAsOf": { "type": "string", "format": "date-time" },
+        "qualityStatus": { "enum": ["GOOD", "DEGRADED", "STALE", "REJECTED"] },
+        "subject": { "type": "string" },
+        "modelVersion": { "type": ["string", "null"] },
+        "promptVersion": { "type": ["string", "null"] },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["evidenceId", "type", "version", "sha256", "observedAt"],
+            "properties": {
+              "evidenceId": { "type": "string" },
+              "type": { "type": "string" },
+              "version": { "type": "string" },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "observedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "properties": { "ok": { "const": true } }, "required": ["data"], "not": { "required": ["error"] } },
+    { "properties": { "ok": { "const": false } }, "required": ["error"], "not": { "required": ["data"] } }
+  ]
+}

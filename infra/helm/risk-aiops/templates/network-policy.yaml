@@ -1,0 +1,21 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: default-deny, labels: { app.kubernetes.io/part-of: risk-aiops } }
+spec: { podSelector: {}, policyTypes: [Ingress, Egress] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: service-allowlist }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/part-of: risk-aiops } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app.kubernetes.io/part-of: risk-aiops } } }]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/part-of: risk-aiops } } }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: observability } } }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: identity } } }]
+    - to: [{ namespaceSelector: {} }]
+      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+{{- end }}

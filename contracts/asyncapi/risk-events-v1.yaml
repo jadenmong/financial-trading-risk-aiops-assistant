@@ -1,0 +1,19 @@
+asyncapi: 3.0.0
+info:
+  title: Risk AIOps Event Contracts
+  version: 1.0.0
+  description: Versioned reference contracts; incompatible changes require a new topic version.
+channels:
+  marketSnapshot: { address: market.snapshot.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  positionSnapshot: { address: position.snapshot.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  orderEvent: { address: order.event.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  executionEvent: { address: execution.event.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  riskBreach: { address: risk.breach.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  agentRun: { address: agent.run.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  reportLifecycle: { address: report.lifecycle.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+  opsAudit: { address: ops.audit.v1, messages: { event: { $ref: '#/components/messages/Event' } } }
+components:
+  messages:
+    Event:
+      payload:
+        $ref: ../jsonschema/event-envelope-v1.json

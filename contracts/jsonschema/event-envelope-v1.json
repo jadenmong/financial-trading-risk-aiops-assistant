@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jadenmong/financial-trading-risk-aiops-assistant/contracts/event-envelope-v1.json",
+  "title": "Risk AIOps event envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "schemaVersion", "eventType", "source", "sourceTimestamp", "publishedAt", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "schemaVersion": { "const": "1.0" },
+    "eventType": {
+      "enum": ["market.snapshot.v1", "position.snapshot.v1", "order.event.v1", "execution.event.v1", "risk.breach.v1", "agent.run.v1", "report.lifecycle.v1", "ops.audit.v1"]
+    },
+    "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "sourceTimestamp": { "type": "string", "format": "date-time" },
+    "publishedAt": { "type": "string", "format": "date-time" },
+    "partitionKey": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "payload": { "type": "object" }
+  }
+}

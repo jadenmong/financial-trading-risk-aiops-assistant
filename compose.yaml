@@ -1,0 +1,108 @@
+name: financial-risk-aiops
+services:
+  postgres:
+    image: postgres:18.4@sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636
+    environment: { POSTGRES_DB: risk_aiops, POSTGRES_USER: risk_app, POSTGRES_PASSWORD: reference-only }
+    healthcheck: { test: [CMD-SHELL, "pg_isready -U risk_app -d risk_aiops"], interval: 5s, timeout: 3s, retries: 20 }
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    networks: [data]
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13
+    command: [start-dev, --import-realm, --health-enabled=true]
+    environment: { KC_BOOTSTRAP_ADMIN_USERNAME: admin, KC_BOOTSTRAP_ADMIN_PASSWORD: reference-admin-only, KC_HTTP_PORT: 8080 }
+    volumes: [./infra/compose/keycloak/risk-aiops-realm.json:/opt/keycloak/data/import/risk-aiops-realm.json:ro]
+    ports: ["8081:8080"]
+    networks: [edge]
+  redpanda:
+    image: redpandadata/redpanda:v25.2.7@sha256:f8473678d20fef8f432c25238334ede220cd65db0cff2c8d5481989a11669970
+    command: [redpanda, start, --smp, "1", --memory, 1G, --reserve-memory, 0M, --overprovisioned, --node-id, "0", --check=false, --kafka-addr, PLAINTEXT://0.0.0.0:9092, --advertise-kafka-addr, PLAINTEXT://redpanda:9092]
+    healthcheck: { test: [CMD-SHELL, "rpk cluster health | grep -q Healthy"], interval: 10s, timeout: 5s, retries: 20 }
+    volumes: [redpanda-data:/var/lib/redpanda/data]
+    networks: [data]
+  minio:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:d249d1fb6966de4d8ad26c04754b545205ff15a62e4fd19ebd0f26fa5baacbc0
+    command: [server, /data, --console-address, ":9001"]
+    environment: { MINIO_ROOT_USER: reference-minio, MINIO_ROOT_PASSWORD: reference-minio-secret }
+    healthcheck: { test: [CMD, mc, ready, local], interval: 10s, timeout: 5s, retries: 20 }
+    volumes: [minio-data:/data]
+    networks: [data]
+  risk-core:
+    build: { context: ., dockerfile: apps/risk-core/Dockerfile }
+    environment:
+      SPRING_PROFILES_ACTIVE: reference
+      DATABASE_URL: jdbc:postgresql://postgres:5432/risk_aiops
+      OIDC_ISSUER: http://keycloak:8080/realms/risk-aiops
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: reference-minio
+      MINIO_SECRET_KEY: reference-minio-secret
+    depends_on: { postgres: { condition: service_healthy } }
+    ports: ["8080:8080"]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    networks: [edge, data, telemetry]
+  ai-gateway:
+    build: { context: ., dockerfile: apps/ai-gateway/Dockerfile }
+    environment:
+      NODE_ENV: production
+      GATEWAY_PORT: 3000
+      REFERENCE_AUTH: "true"
+      RISK_CORE_URL: http://risk-core:8080
+      MCP_RESOURCE_URL: http://localhost:3000/mcp
+      MCP_ALLOWED_HOSTS: localhost,127.0.0.1,ai-gateway
+      MCP_ALLOWED_ORIGINS: http://localhost:5173
+      OIDC_ISSUER: http://keycloak:8080/realms/risk-aiops
+      MODEL_PROVIDER: fake
+      AUDIT_PATH: /runtime/gateway-audit.ndjson
+    depends_on: [risk-core, keycloak]
+    ports: ["3000:3000"]
+    volumes: [gateway-runtime:/runtime]
+    security_opt: [no-new-privileges:true]
+    networks: [edge, telemetry]
+  ops-console:
+    build: { context: ., dockerfile: apps/ops-console/Dockerfile }
+    depends_on: [ai-gateway]
+    ports: ["5173:8080"]
+    read_only: true
+    tmpfs: [/var/cache/nginx, /var/run]
+    security_opt: [no-new-privileges:true]
+    networks: [edge]
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.136.0@sha256:45392d534c1edcc809c2d112394029246bc679d2ae5ea7081414a1fc74f2c621
+    command: [--config=/etc/otelcol/config.yaml]
+    volumes: [./infra/compose/otel/collector.yaml:/etc/otelcol/config.yaml:ro]
+    networks: [telemetry]
+  prometheus:
+    image: prom/prometheus:v3.6.0@sha256:76947e7ef22f8a698fc638f706685909be425dbe09bd7a2cd7aca849f79b5f64
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=7d]
+    volumes: [./infra/compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro, ./infra/compose/prometheus/risk-alerts.yml:/etc/prometheus/risk-alerts.yml:ro, prometheus-data:/prometheus]
+    ports: ["9090:9090"]
+    networks: [telemetry]
+  tempo:
+    image: grafana/tempo:2.8.2@sha256:0ef775495967cd5d7a6b2e146b6ea695d624803c8db8349fb8ce4164f719f9b7
+    command: [-config.file=/etc/tempo.yaml]
+    volumes: [./infra/compose/otel/tempo.yaml:/etc/tempo.yaml:ro, tempo-data:/var/tempo]
+    networks: [telemetry]
+  loki:
+    image: grafana/loki:3.5.5@sha256:31628519045e7f28692a7ae73b4a3fd293dccb425585ed5d16ceea3b5c9592e6
+    command: [-config.file=/etc/loki/local-config.yaml]
+    networks: [telemetry]
+  grafana:
+    image: grafana/grafana:12.2.0@sha256:74144189b38447facf737dfd0f3906e42e0776212bf575dc3334c3609183adf7
+    environment: { GF_SECURITY_ADMIN_USER: admin, GF_SECURITY_ADMIN_PASSWORD: reference-grafana-only, GF_AUTH_ANONYMOUS_ENABLED: "false" }
+    volumes: [./infra/compose/grafana/provisioning:/etc/grafana/provisioning:ro, ./infra/compose/grafana/dashboards:/var/lib/grafana/dashboards:ro, grafana-data:/var/lib/grafana]
+    ports: ["3001:3000"]
+    networks: [telemetry]
+networks:
+  edge: {}
+  data: { internal: true }
+  telemetry: { internal: true }
+volumes:
+  postgres-data: {}
+  redpanda-data: {}
+  minio-data: {}
+  gateway-runtime: {}
+  prometheus-data: {}
+  tempo-data: {}
+  grafana-data: {}

@@ -1,0 +1,18 @@
+[project]
+name = "risk-aiops-market-adapter"
+version = "1.0.0"
+description = "Optional public-market-data-only adapter; never a trading or position truth source."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi==0.115.12",
+  "pydantic==2.11.7",
+  "uvicorn==0.34.3"
+]
+
+[project.optional-dependencies]
+akshare = ["akshare==1.17.87"]
+test = ["httpx==0.28.1", "pytest==8.4.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

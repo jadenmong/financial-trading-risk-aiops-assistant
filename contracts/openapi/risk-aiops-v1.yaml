@@ -1,0 +1,98 @@
+openapi: 3.1.0
+info:
+  title: Financial Trading Risk AIOps API
+  version: 1.0.0
+  description: Read-only diagnosis plus governed report draft/decision APIs over fictional reference data.
+servers:
+  - url: http://localhost:3000
+security:
+  - oidc: []
+paths:
+  /api/v1/diagnoses:
+    post:
+      operationId: createDiagnosis
+      security: [{ oidc: [diagnosis:write] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDiagnosis' }
+      responses:
+        '202': { description: Accepted }
+        '409': { description: Idempotency key conflict }
+  /api/v1/diagnoses/{id}:
+    get:
+      operationId: getDiagnosis
+      security: [{ oidc: [diagnosis:read] }]
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { description: Diagnosis state }
+        '404': { description: Not found }
+  /api/v1/diagnoses/{id}/events:
+    get:
+      operationId: streamDiagnosisEvents
+      security: [{ oidc: [diagnosis:read] }]
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: Server-sent state transitions
+          content: { text/event-stream: { schema: { type: string } } }
+  /api/v1/reports:
+    post:
+      operationId: createReportDraft
+      security: [{ oidc: [report:write] }]
+      responses: { '201': { description: Draft created } }
+  /api/v1/reports/{id}:
+    get:
+      operationId: getReport
+      security: [{ oidc: [report:read] }]
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses: { '200': { description: Report } }
+  /api/v1/reports/{id}/decisions:
+    post:
+      operationId: decideReport
+      description: Creator cannot approve. If-Match is required for optimistic locking.
+      security: [{ oidc: [report:approve] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - in: header
+          name: If-Match
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Decision recorded }
+        '409': { description: Maker-checker or version conflict }
+        '428': { description: If-Match required }
+  /api/v1/audit-events:
+    get:
+      operationId: listAuditEvents
+      security: [{ oidc: [audit:read] }]
+      responses: { '200': { description: Authorized append-only audit events } }
+components:
+  securitySchemes:
+    oidc:
+      type: openIdConnect
+      openIdConnectUrl: http://localhost:8081/realms/risk-aiops/.well-known/openid-configuration
+  parameters:
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Decimal:
+      type: string
+      pattern: '^-?(0|[1-9][0-9]*)(\.[0-9]{1,10})?$'
+      examples: ['123456.7800000000']
+    CreateDiagnosis:
+      type: object
+      additionalProperties: false
+      required: [accountId, tradeDate]
+      properties:
+        accountId: { type: string, pattern: '^[A-Z0-9_-]{1,64}$' }
+        tradeDate: { type: string, format: date }

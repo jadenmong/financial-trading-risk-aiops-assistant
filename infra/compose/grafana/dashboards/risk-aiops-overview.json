@@ -1,0 +1,12 @@
+{
+  "title": "Risk AIOps Operational Overview",
+  "uid": "risk-aiops-overview",
+  "schemaVersion": 41,
+  "refresh": "15s",
+  "panels": [
+    { "id": 1, "type": "timeseries", "title": "Deterministic API p95", "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))", "legendFormat": "p95" }], "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 } },
+    { "id": 2, "type": "stat", "title": "Audit failures", "targets": [{ "expr": "sum(increase(risk_aiops_audit_write_failures_total[1h]))" }], "gridPos": { "x": 12, "y": 0, "w": 6, "h": 8 } },
+    { "id": 3, "type": "stat", "title": "Risk breaches", "targets": [{ "expr": "sum(risk_aiops_active_breaches)" }], "gridPos": { "x": 18, "y": 0, "w": 6, "h": 8 } },
+    { "id": 4, "type": "timeseries", "title": "Agent cost / provider / handoff", "targets": [{ "expr": "sum(rate(risk_aiops_agent_estimated_cost_usd_total[5m]))" }, { "expr": "sum(rate(risk_aiops_agent_handoff_total[5m]))" }], "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 } }
+  ]
+}

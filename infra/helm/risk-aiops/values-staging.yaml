@@ -1,0 +1,6 @@
+components:
+  ai-gateway: { replicas: 2, image: { digest: "REQUIRED_RELEASE_DIGEST" } }
+  risk-core: { replicas: 2, image: { digest: "REQUIRED_RELEASE_DIGEST" } }
+  ops-console: { replicas: 2, image: { digest: "REQUIRED_RELEASE_DIGEST" } }
+autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 4, targetCPUUtilizationPercentage: 70 }
+backup: { enabled: true, schedule: "*/5 * * * *" }

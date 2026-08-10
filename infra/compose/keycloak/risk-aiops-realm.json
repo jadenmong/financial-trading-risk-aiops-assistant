@@ -1,0 +1,77 @@
+{
+  "realm": "risk-aiops",
+  "enabled": true,
+  "displayName": "Synthetic Risk AIOps Reference Realm",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "risk-analyst" },
+      { "name": "trading-ops" },
+      { "name": "report-approver" },
+      { "name": "auditor" },
+      { "name": "platform-admin" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ops-console",
+      "name": "Vue Operations Console",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "optionalClientScopes": ["market:read", "risk:read", "reconciliation:read", "report:preview", "diagnosis:read", "diagnosis:write", "report:read", "report:write", "report:approve", "audit:read"],
+      "attributes": { "pkce.code.challenge.method": "S256" },
+      "protocolMappers": [
+        { "name": "mcp-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": { "included.client.audience": "risk-aiops-mcp", "access.token.claim": "true" } },
+        { "name": "accounts", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-attribute-mapper", "config": { "user.attribute": "accounts", "claim.name": "accounts", "jsonType.label": "String", "multivalued": "true", "access.token.claim": "true" } },
+        { "name": "desks", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-attribute-mapper", "config": { "user.attribute": "desks", "claim.name": "desks", "jsonType.label": "String", "multivalued": "true", "access.token.claim": "true" } }
+      ]
+    },
+    {
+      "clientId": "ai-gateway",
+      "name": "Confidential MCP Gateway",
+      "publicClient": false,
+      "secret": "reference-gateway-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": { "standard.token.exchange.enabled": "true" }
+    },
+    { "clientId": "risk-core", "name": "Risk Core Resource Server", "bearerOnly": true, "publicClient": false },
+    { "clientId": "risk-aiops-mcp", "name": "MCP Protected Resource", "bearerOnly": true, "publicClient": false }
+  ],
+  "clientScopes": [
+    { "name": "market:read", "protocol": "openid-connect" },
+    { "name": "risk:read", "protocol": "openid-connect" },
+    { "name": "reconciliation:read", "protocol": "openid-connect" },
+    { "name": "report:preview", "protocol": "openid-connect" },
+    { "name": "diagnosis:read", "protocol": "openid-connect" },
+    { "name": "diagnosis:write", "protocol": "openid-connect" },
+    { "name": "report:read", "protocol": "openid-connect" },
+    { "name": "report:write", "protocol": "openid-connect" },
+    { "name": "report:approve", "protocol": "openid-connect" },
+    { "name": "audit:read", "protocol": "openid-connect" }
+  ],
+  "users": [
+    {
+      "username": "risk-analyst-a", "enabled": true, "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "reference-analyst-only", "temporary": false }],
+      "realmRoles": ["risk-analyst"],
+      "attributes": { "desks": ["DESK_ALPHA"], "portfolios": ["PORT_ALPHA"], "accounts": ["ACC_ALPHA_01", "ACC_ALPHA_02"] }
+    },
+    {
+      "username": "report-approver-b", "enabled": true, "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "reference-approver-only", "temporary": false }],
+      "realmRoles": ["report-approver"],
+      "attributes": { "desks": ["DESK_ALPHA"], "portfolios": ["PORT_ALPHA"], "accounts": ["ACC_ALPHA_01", "ACC_ALPHA_02"] }
+    },
+    {
+      "username": "auditor", "enabled": true, "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "reference-auditor-only", "temporary": false }],
+      "realmRoles": ["auditor"], "attributes": { "desks": ["DESK_ALPHA", "DESK_BETA"] }
+    }
+  ]
+}
