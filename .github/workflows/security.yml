@@ -25,7 +25,8 @@ jobs:
         with: { distribution: temurin, java-version: 21, cache: maven }
       - name: Build Java for CodeQL
         if: matrix.build-mode == 'manual'
-        run: bash apps/risk-core/mvnw -B -DskipTests package
+        run: bash mvnw -B -DskipTests package
+        working-directory: apps/risk-core
       - uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
   secrets-and-filesystem:
     runs-on: ubuntu-latest
@@ -41,6 +42,8 @@ jobs:
         with: { sarif_file: trivy-results.sarif }
   dependency-audit:
     runs-on: ubuntu-latest
+    env:
+      NVD_API_KEY: '${{ secrets.NVD_API_KEY }}'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -50,5 +53,14 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: '3.12' }
       - run: npm ci && npm audit --audit-level=high
-      - run: mvn -B -f apps/risk-core/pom.xml org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7
+      - name: OWASP Dependency Check with NVD feed
+        if: env.NVD_API_KEY != ''
+        run: >-
+          mvn -B -f apps/risk-core/pom.xml
+          org.owasp:dependency-check-maven:13.0.0:check
+          -DfailBuildOnCVSS=7
+          -DnvdApiKeyEnvironmentVariable=NVD_API_KEY
+      - name: Record optional NVD scanner status
+        if: env.NVD_API_KEY == ''
+        run: echo 'NVD_API_KEY is not configured; Trivy remains the mandatory Maven/POM vulnerability gate.'
       - run: pip install pip-audit && pip-audit -r apps/market-adapter/requirements.lock

@@ -54,6 +54,6 @@ public class ObjectStorageConfig {
         }
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         client.putObject(PutObjectArgs.builder().bucket(bucket).object(object).contentType(contentType)
-                .stream(new ByteArrayInputStream(bytes), bytes.length, -1).build());
+                .stream(new ByteArrayInputStream(bytes), (long) bytes.length, -1L).build());
     }
 }

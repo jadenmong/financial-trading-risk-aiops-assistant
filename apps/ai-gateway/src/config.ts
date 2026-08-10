@@ -17,6 +17,8 @@ export const GatewayConfigSchema = z.object({
   allowedOrigins: z.array(z.string().min(1)).min(1),
   referenceAuth: z.boolean().default(false),
   auditPath: z.string().min(1).default('runtime/gateway-audit.ndjson'),
+  rateLimitWindowMs: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
+  rateLimitMax: z.coerce.number().int().min(1).max(100_000).default(120),
 });
 
 export type GatewayConfig = z.infer<typeof GatewayConfigSchema>;
@@ -41,5 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     allowedOrigins: csv(env.MCP_ALLOWED_ORIGINS, ['http://localhost:5173']),
     referenceAuth: booleanFromString.parse(env.REFERENCE_AUTH ?? 'false'),
     auditPath: env.AUDIT_PATH,
+    rateLimitWindowMs: env.MCP_RATE_LIMIT_WINDOW_MS,
+    rateLimitMax: env.MCP_RATE_LIMIT_MAX,
   });
 }

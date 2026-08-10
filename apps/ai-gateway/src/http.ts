@@ -3,6 +3,7 @@ import './instrumentation.js';
 import { Readable } from 'node:stream';
 import { createMcpHandler, type AuthInfo } from '@modelcontextprotocol/server';
 import express, { type Request as ExpressRequest, type Response as ExpressResponse } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import pino from 'pino';
 
 import { NdjsonAuditSink } from './audit.js';
@@ -42,7 +43,15 @@ export function createApp(dependencies: AppDependencies = {}) {
   const handler = createMcpHandler((context) => createFinancialRiskMcpServer({ ...(context.authInfo ? { authInfo: context.authInfo } : {}), core, audit, ...(tokenExchange ? { tokenExchange } : {}) }), {
     legacy: 'stateless', responseMode: 'auto', onerror: (error) => logger.error({ err: error }, 'MCP handler error'),
   });
-  app.all('/mcp', validateHostAndOrigin(config.allowedHosts, config.allowedOrigins), async (request, response) => {
+  const mcpRateLimiter = rateLimit({
+    windowMs: config.rateLimitWindowMs,
+    limit: config.rateLimitMax,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    passOnStoreError: false,
+    handler: (_request, response) => response.status(429).json({ error: 'rate_limited' }),
+  });
+  app.all('/mcp', validateHostAndOrigin(config.allowedHosts, config.allowedOrigins), mcpRateLimiter, async (request, response) => {
     let authInfo: AuthInfo;
     try {
       authInfo = await authenticator.authenticate(request.get('authorization'));

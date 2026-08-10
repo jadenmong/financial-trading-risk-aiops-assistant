@@ -24,4 +24,18 @@ describe('HTTP transport edge controls', () => {
     expect(response.status).toBe(401);
     expect(response.headers['www-authenticate']).toContain('resource_metadata');
   });
+
+  it('rate limits repeated requests to the protected MCP endpoint', async () => {
+    const limitedConfig = GatewayConfigSchema.parse({
+      allowedHosts: ['localhost'],
+      allowedOrigins: ['http://localhost:5173'],
+      referenceAuth: true,
+      rateLimitMax: 2,
+      rateLimitWindowMs: 60_000,
+    });
+    const limitedApp = createApp({ config: limitedConfig });
+    expect((await request(limitedApp).post('/mcp').set('Host', 'localhost').send({})).status).toBe(401);
+    expect((await request(limitedApp).post('/mcp').set('Host', 'localhost').send({})).status).toBe(401);
+    expect((await request(limitedApp).post('/mcp').set('Host', 'localhost').send({})).status).toBe(429);
+  });
 });

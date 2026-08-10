@@ -16,7 +16,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:node
       - run: npm run build:node
-      - run: bash apps/risk-core/mvnw -B test
+      - run: bash mvnw -B test
+        working-directory: apps/risk-core
       - run: node scripts/verify-contracts.mjs
       - run: node scripts/verify-image-lock.mjs
       - run: node scripts/verify-actions-lock.mjs
