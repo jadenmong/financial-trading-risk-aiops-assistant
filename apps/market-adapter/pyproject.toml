@@ -4,14 +4,14 @@ version = "1.0.0"
 description = "Optional public-market-data-only adapter; never a trading or position truth source."
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "fastapi==0.115.12",
-  "pydantic==2.11.7",
-  "uvicorn==0.34.3"
+  "fastapi==0.141.1",
+  "pydantic==2.13.4",
+  "uvicorn==0.52.1"
 ]
 
 [project.optional-dependencies]
-akshare = ["akshare==1.17.87"]
-test = ["httpx==0.28.1", "pytest==8.4.1"]
+akshare = ["akshare==1.18.83"]
+test = ["httpx2==2.10.0", "pytest==9.1.1"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

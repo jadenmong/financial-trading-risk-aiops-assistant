@@ -26,11 +26,16 @@
     "test:java": "node scripts/mvn.mjs -B test",
     "test:python": "cd apps/market-adapter && python -m pytest",
     "test": "npm run test:node && npm run test:java && npm run test:python",
-    "verify:contracts": "node scripts/verify-contracts.mjs && node scripts/verify-image-lock.mjs",
+    "verify:contracts": "node scripts/verify-contracts.mjs",
+    "verify:supply-chain": "node scripts/verify-image-lock.mjs && node scripts/verify-actions-lock.mjs",
     "eval": "node evals/run-evals.mjs",
-    "check": "npm run typecheck && npm run test && npm run verify:contracts && npm run eval && npm run build:node && npm run build:java",
+    "check": "npm run typecheck && npm run test && npm run verify:contracts && npm run verify:supply-chain && npm run eval && npm run build:node && npm run build:java",
     "smoke": "npm run smoke -w @risk-aiops/ai-gateway",
     "compose:config": "docker compose -f compose.yaml config",
     "clean": "npm run clean --workspaces --if-present"
+  },
+  "optionalDependencies": {
+    "@esbuild/linux-x64": "0.28.1",
+    "@rollup/rollup-linux-x64-gnu": "4.62.4"
   }
 }

@@ -7,10 +7,10 @@ jobs:
   node-java-contracts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 22, cache: npm }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with: { distribution: temurin, java-version: 21, cache: maven }
       - run: npm ci
       - run: npm run typecheck
@@ -19,28 +19,29 @@ jobs:
       - run: bash apps/risk-core/mvnw -B test
       - run: node scripts/verify-contracts.mjs
       - run: node scripts/verify-image-lock.mjs
+      - run: node scripts/verify-actions-lock.mjs
       - run: node evals/run-evals.mjs
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
       - run: >-
           helm lint infra/helm/risk-aiops
           --set components.ai-gateway.image.digest=sha256:1111111111111111111111111111111111111111111111111111111111111111
           --set components.risk-core.image.digest=sha256:2222222222222222222222222222222222222222222222222222222222222222
           --set components.ops-console.image.digest=sha256:3333333333333333333333333333333333333333333333333333333333333333
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: fake-model-eval, path: evals/results/fake-model-security.json }
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: '3.12', cache: pip, cache-dependency-path: apps/market-adapter/requirements.lock }
-      - run: pip install -r requirements.lock httpx==0.28.1 pytest==8.4.1
+      - run: pip install -r requirements.lock httpx2==2.10.0 pytest==9.1.1
         working-directory: apps/market-adapter
-      - run: pytest
+      - run: python -m pytest
         working-directory: apps/market-adapter
   compose-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker compose config --quiet
       - run: docker compose build ai-gateway risk-core ops-console

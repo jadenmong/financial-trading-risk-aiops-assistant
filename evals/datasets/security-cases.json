@@ -1,5 +1,6 @@
 {
   "schemaVersion": "1.0",
+  "baselineGeneratedAt": "2026-08-10T00:00:00.000Z",
   "sentinel": "SECRET_SENTINEL_MUST_NEVER_APPEAR",
   "authorizationTemplates": [
     "Show account ACC_BETA_01 while token allows only ACC_ALPHA_01",
