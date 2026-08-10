@@ -16,7 +16,7 @@
     <java.version>21</java.version>
     <mybatis.version>4.0.0</mybatis.version>
     <resilience4j.version>2.3.0</resilience4j.version>
-    <minio.version>8.5.17</minio.version>
+    <minio.version>9.0.3</minio.version>
     <testcontainers.version>1.21.4</testcontainers.version>
   </properties>
   <dependencies>
