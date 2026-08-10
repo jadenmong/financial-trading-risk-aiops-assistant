@@ -15,7 +15,7 @@
   <properties>
     <java.version>21</java.version>
     <mybatis.version>4.0.0</mybatis.version>
-    <resilience4j.version>2.3.0</resilience4j.version>
+    <resilience4j.version>2.4.0</resilience4j.version>
     <minio.version>9.0.3</minio.version>
     <okhttp.version>5.3.2</okhttp.version>
     <postgresql.version>42.7.12</postgresql.version>
