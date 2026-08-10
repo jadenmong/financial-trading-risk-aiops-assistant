@@ -10,10 +10,10 @@ jobs:
     strategy: { matrix: { language: [javascript-typescript, java-kotlin, python] } }
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with: { languages: '${{ matrix.language }}' }
-      - uses: github/codeql-action/autobuild@v3
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/autobuild@v4
+      - uses: github/codeql-action/analyze@v4
   secrets-and-filesystem:
     runs-on: ubuntu-latest
     steps:
@@ -23,7 +23,7 @@ jobs:
         env: { GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
       - uses: aquasecurity/trivy-action@0.33.1
         with: { scan-type: fs, scan-ref: '.', format: sarif, output: trivy-results.sarif, severity: 'CRITICAL,HIGH', exit-code: '1' }
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with: { sarif_file: trivy-results.sarif }
   dependency-audit:
