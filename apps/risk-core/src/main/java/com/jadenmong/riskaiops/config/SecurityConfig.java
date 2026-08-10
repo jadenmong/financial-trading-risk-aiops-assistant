@@ -18,6 +18,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -25,7 +26,8 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, @Value("${app.reference-mode:false}") boolean referenceMode) throws Exception {
-        http.csrf(csrf -> csrf.disable());
+        http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/**", "/internal/**"))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         if (referenceMode) {
             http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         } else {
@@ -47,8 +49,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    AccountAccessGuard accountAccessGuard() {
-        return new AccountAccessGuard();
+    AccountAccessGuard accountAccessGuard(@Value("${app.reference-mode:false}") boolean referenceMode) {
+        return new AccountAccessGuard(referenceMode);
     }
 
     @Bean
@@ -64,8 +66,15 @@ public class SecurityConfig {
     }
 
     public static final class AccountAccessGuard {
+        private final boolean referenceMode;
+
+        public AccountAccessGuard(boolean referenceMode) {
+            this.referenceMode = referenceMode;
+        }
+
         public boolean allowed(org.springframework.security.core.Authentication authentication, String accountId, String scope) {
-            if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) return true;
+            if (referenceMode) return true;
+            if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) return false;
             List<String> accounts = jwt.getClaimAsStringList("accounts");
             return authentication.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("SCOPE_" + scope))
                     && (accountId == null || accounts != null && accounts.contains(accountId));
