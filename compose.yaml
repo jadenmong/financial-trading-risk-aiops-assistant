@@ -4,7 +4,7 @@ services:
     image: postgres:18.4@sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636
     environment: { POSTGRES_DB: risk_aiops, POSTGRES_USER: risk_app, POSTGRES_PASSWORD: reference-only }
     healthcheck: { test: [CMD-SHELL, "pg_isready -U risk_app -d risk_aiops"], interval: 5s, timeout: 3s, retries: 20 }
-    volumes: [postgres-data:/var/lib/postgresql/data]
+    volumes: [postgres-data:/var/lib/postgresql]
     networks: [data]
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13
