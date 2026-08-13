@@ -77,7 +77,7 @@ services:
     depends_on: [ai-gateway]
     ports: ["${BIND_ADDRESS:-127.0.0.1}:5173:8080"]
     read_only: true
-    tmpfs: [/var/cache/nginx, /var/run]
+    tmpfs: [/tmp, /var/cache/nginx, /var/run]
     security_opt: [no-new-privileges:true]
     networks: [edge]
   otel-collector:

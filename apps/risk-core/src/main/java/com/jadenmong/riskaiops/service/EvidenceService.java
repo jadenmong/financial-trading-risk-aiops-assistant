@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import tools.jackson.core.JacksonException;
@@ -28,6 +29,7 @@ public class EvidenceService {
         this(source, (OperationsMapper) null);
     }
 
+    @Autowired
     public EvidenceService(ObjectMapper source, ObjectProvider<OperationsMapper> operationsProvider) {
         this(source, operationsProvider == null ? null : operationsProvider.getIfAvailable());
     }
