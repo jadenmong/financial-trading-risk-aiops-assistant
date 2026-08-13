@@ -116,20 +116,23 @@ flowchart LR
 ```bash
 git clone https://github.com/jadenmong/financial-trading-risk-aiops-assistant.git
 cd financial-trading-risk-aiops-assistant
+cp .env.example .env
 docker compose up --build -d
 docker compose ps
 ```
+
+仓库中的 `.env.example` 已按内网测试服务器 `192.168.1.88` 配置。部署到该服务器时保留该值即可；如改用其他主机名或 IP，须同时更新 `BIND_ADDRESS`、`PUBLIC_KEYCLOAK_URL`、`PUBLIC_MCP_URL`、`MCP_ALLOWED_HOSTS`、`MCP_ALLOWED_ORIGINS`，并相应调整 Keycloak realm 的 Console 回调白名单。Windows PowerShell 请使用 `Copy-Item .env.example .env`。
 
 首次构建和启动需要等待镜像下载、数据库就绪与 Keycloak realm 导入。可通过以下地址访问：
 
 | 服务 | 地址 | 用途 |
 | --- | --- | --- |
-| Ops Console | <http://localhost:5173> | 业务控制台 |
-| AI/MCP Gateway | <http://localhost:3000/health/ready> | Gateway 就绪检查；MCP 端点为 `/mcp` |
-| Risk Core | <http://localhost:8080/actuator/health/readiness> | 核心服务就绪检查 |
-| Keycloak | <http://localhost:8081> | OIDC 与参考 realm |
-| Grafana | <http://localhost:3001> | 可观测性面板 |
-| Prometheus | <http://localhost:9090> | 指标查询 |
+| Ops Console | <http://192.168.1.88:5173> | 业务控制台 |
+| AI/MCP Gateway | <http://192.168.1.88:13000/health/ready> | Gateway 就绪检查；MCP 端点为 `/mcp` |
+| Risk Core | <http://192.168.1.88:18080/actuator/health/readiness> | 核心服务就绪检查 |
+| Keycloak | <http://192.168.1.88:8081> | OIDC 与参考 realm |
+| Grafana | <http://192.168.1.88:3001> | 可观测性面板 |
+| Prometheus | <http://192.168.1.88:19090> | 指标查询 |
 
 参考环境内置账号仅用于本机演示：
 
@@ -148,7 +151,7 @@ docker compose down
 ```
 
 > [!WARNING]
-> 上述共享凭据、开发模式和本地端口映射只属于 `reference` 环境，禁止带入生产。CI 已验证 Compose 配置和三个应用镜像构建；全栈启动、恢复与负载演练的最新状态请以[验证状态](docs/evidence/verification-status.md)为准。
+> 上述共享凭据、开发模式、HTTP Keycloak 与内网端口映射只属于 `reference` 环境，禁止带入生产。只应允许受信任内网网段访问这些端口，且不得向互联网暴露。CI 已验证 Compose 配置和三个应用镜像构建；全栈启动、恢复与负载演练的最新状态请以[验证状态](docs/evidence/verification-status.md)为准。
 
 ### 方式二：运行本地检查与 MCP smoke
 

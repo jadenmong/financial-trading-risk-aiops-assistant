@@ -5,6 +5,8 @@ COPY apps/ai-gateway/package.json apps/ai-gateway/package.json
 COPY apps/ops-console/package.json apps/ops-console/package.json
 RUN npm ci
 COPY apps/ops-console apps/ops-console
+ARG VITE_OIDC_ISSUER
+ENV VITE_OIDC_ISSUER=$VITE_OIDC_ISSUER
 RUN npm run build -w @risk-aiops/ops-console
 
 FROM nginx:1.29.2-alpine@sha256:61e01287e546aac28a3f56839c136b31f590273f3b41187a36f46f6a03bbfe22

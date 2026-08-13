@@ -2,7 +2,7 @@
   "realm": "risk-aiops",
   "enabled": true,
   "displayName": "Synthetic Risk AIOps Reference Realm",
-  "sslRequired": "external",
+  "sslRequired": "none",
   "registrationAllowed": false,
   "roles": {
     "realm": [
@@ -20,8 +20,8 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "redirectUris": ["http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"],
+      "redirectUris": ["http://localhost:5173/*", "http://192.168.1.88:5173/*"],
+      "webOrigins": ["http://localhost:5173", "http://192.168.1.88:5173"],
       "optionalClientScopes": ["market:read", "risk:read", "reconciliation:read", "report:preview", "incident:read", "incident:write", "system:read", "evidence:read", "diagnosis:read", "diagnosis:write", "report:read", "report:write", "report:approve", "audit:read"],
       "attributes": { "pkce.code.challenge.method": "S256" },
       "protocolMappers": [

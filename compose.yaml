@@ -9,9 +9,13 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13
     command: [start-dev, --import-realm, --health-enabled=true]
-    environment: { KC_BOOTSTRAP_ADMIN_USERNAME: admin, KC_BOOTSTRAP_ADMIN_PASSWORD: reference-admin-only, KC_HTTP_PORT: 8080 }
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: reference-admin-only
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}
     volumes: [./infra/compose/keycloak/risk-aiops-realm.json:/opt/keycloak/data/import/risk-aiops-realm.json:ro]
-    ports: ["8081:8080"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:8081:8080"]
     networks: [edge]
   redpanda:
     image: redpandadata/redpanda:v25.2.7@sha256:f8473678d20fef8f432c25238334ede220cd65db0cff2c8d5481989a11669970
@@ -40,7 +44,7 @@ services:
       MINIO_ACCESS_KEY: reference-minio
       MINIO_SECRET_KEY: reference-minio-secret
     depends_on: { postgres: { condition: service_healthy } }
-    ports: ["8080:8080"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${RISK_CORE_HOST_PORT:-8080}:8080"]
     read_only: true
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
@@ -53,21 +57,25 @@ services:
       GATEWAY_PORT: 3000
       REFERENCE_AUTH: "true"
       RISK_CORE_URL: http://risk-core:8080
-      MCP_RESOURCE_URL: http://localhost:3000/mcp
-      MCP_ALLOWED_HOSTS: localhost,127.0.0.1,ai-gateway
-      MCP_ALLOWED_ORIGINS: http://localhost:5173
+      MCP_RESOURCE_URL: ${PUBLIC_MCP_URL:-http://localhost:3000}/mcp
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-localhost,127.0.0.1,ai-gateway}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-http://localhost:5173}
       OIDC_ISSUER: http://keycloak:8080/realms/risk-aiops
       MODEL_PROVIDER: fake
       AUDIT_PATH: /runtime/gateway-audit.ndjson
     depends_on: [risk-core, keycloak]
-    ports: ["3000:3000"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${GATEWAY_HOST_PORT:-3000}:3000"]
     volumes: [gateway-runtime:/runtime]
     security_opt: [no-new-privileges:true]
     networks: [edge, telemetry]
   ops-console:
-    build: { context: ., dockerfile: apps/ops-console/Dockerfile }
+    build:
+      context: .
+      dockerfile: apps/ops-console/Dockerfile
+      args:
+        VITE_OIDC_ISSUER: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}/realms/risk-aiops
     depends_on: [ai-gateway]
-    ports: ["5173:8080"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:5173:8080"]
     read_only: true
     tmpfs: [/var/cache/nginx, /var/run]
     security_opt: [no-new-privileges:true]
@@ -81,7 +89,7 @@ services:
     image: prom/prometheus:v3.6.0@sha256:76947e7ef22f8a698fc638f706685909be425dbe09bd7a2cd7aca849f79b5f64
     command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=7d]
     volumes: [./infra/compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro, ./infra/compose/prometheus/risk-alerts.yml:/etc/prometheus/risk-alerts.yml:ro, prometheus-data:/prometheus]
-    ports: ["9090:9090"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_HOST_PORT:-9090}:9090"]
     networks: [telemetry]
   tempo:
     image: grafana/tempo:2.8.2@sha256:0ef775495967cd5d7a6b2e146b6ea695d624803c8db8349fb8ce4164f719f9b7
@@ -96,7 +104,7 @@ services:
     image: grafana/grafana:12.2.0@sha256:74144189b38447facf737dfd0f3906e42e0776212bf575dc3334c3609183adf7
     environment: { GF_SECURITY_ADMIN_USER: admin, GF_SECURITY_ADMIN_PASSWORD: reference-grafana-only, GF_AUTH_ANONYMOUS_ENABLED: "false" }
     volumes: [./infra/compose/grafana/provisioning:/etc/grafana/provisioning:ro, ./infra/compose/grafana/dashboards:/var/lib/grafana/dashboards:ro, grafana-data:/var/lib/grafana]
-    ports: ["3001:3000"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:3001:3000"]
     networks: [telemetry]
 networks:
   edge: {}
