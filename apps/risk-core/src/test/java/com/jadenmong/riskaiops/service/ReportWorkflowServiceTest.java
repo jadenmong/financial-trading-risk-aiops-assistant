@@ -35,4 +35,19 @@ class ReportWorkflowServiceTest {
         assertThatThrownBy(() -> service.decide(draft.id(), ReportWorkflowService.Decision.APPROVE, "ok", 1, "checker")).isInstanceOf(IllegalStateException.class);
         assertThat(service.get(draft.id()).status()).isEqualTo(ReportWorkflowService.Status.DRAFT);
     }
+
+    @Test
+    void createsOnlyOneDraftForEachCompletedDiagnosis() {
+        var evidence = new EvidenceService(new ObjectMapper());
+        var audit = new HashChainAuditService(evidence);
+        var diagnoses = new DiagnosisWorkflowService();
+        var service = new ReportWorkflowService(diagnoses, evidence, audit, (key, json, html) -> "minio://test/" + key);
+        var diagnosis = diagnoses.create("idem-report-003", "ACC_ALPHA_01", LocalDate.parse("2026-08-07"), "maker");
+
+        var first = service.create(diagnosis.id(), "maker");
+        var repeated = service.create(diagnosis.id(), "maker");
+
+        assertThat(repeated.id()).isEqualTo(first.id());
+        assertThat(service.list(100)).containsExactly(first);
+    }
 }

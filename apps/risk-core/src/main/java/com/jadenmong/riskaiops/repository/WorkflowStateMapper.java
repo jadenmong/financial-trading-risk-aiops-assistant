@@ -52,6 +52,7 @@ public interface WorkflowStateMapper {
     @Insert("""
         INSERT INTO ai.report(report_id, run_id, account_id, trade_date, status, creator, version, created_at)
         VALUES(#{id}::uuid, #{diagnosisRunId}::uuid, #{accountId}, #{tradeDate}, #{status}, #{creator}, #{version}, #{createdAt})
+        ON CONFLICT (run_id) DO NOTHING
         """)
     int insertReport(PersistedReport report);
 
@@ -64,6 +65,16 @@ public interface WorkflowStateMapper {
           FROM ai.report WHERE report_id = #{id}::uuid
         """)
     PersistedReport findReport(@Param("id") String id);
+
+    @Select("""
+        SELECT report_id::text AS id, run_id::text AS diagnosisRunId, account_id AS accountId,
+               trade_date AS tradeDate, status, creator, decided_by AS decidedBy,
+               decision_reason AS decisionReason, version, created_at AS createdAt,
+               decided_at AS decidedAt, content_sha256 AS sha256,
+               COALESCE(html_object_uri, json_object_uri) AS objectUri
+          FROM ai.report WHERE run_id = #{diagnosisRunId}::uuid
+        """)
+    PersistedReport findReportByDiagnosisRunId(@Param("diagnosisRunId") String diagnosisRunId);
 
     @Select("""
         SELECT report_id::text AS id, run_id::text AS diagnosisRunId, account_id AS accountId,

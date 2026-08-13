@@ -51,6 +51,10 @@ public class ReportWorkflowService {
         if (mapper != null) return createPersistent(diagnosisRunId, actor);
         var diagnosis = diagnoses.get(diagnosisRunId);
         if (diagnosis.state() != DiagnosisWorkflowService.State.COMPLETED) throw new Conflict("Diagnosis must be completed");
+        var existing = reports.values().stream()
+                .filter(report -> report.diagnosisRunId().equals(diagnosisRunId))
+                .findFirst();
+        if (existing.isPresent()) return existing.get();
         Report report = new Report(UUID.randomUUID().toString(), diagnosisRunId, diagnosis.accountId(), diagnosis.tradeDate(), Status.DRAFT,
                 actor, null, null, 1, Instant.now(), null, null, null);
         audit.append(actor, "ops-console", List.of("report:write"), "report.create", report.id(), hashing.sha256(diagnosisRunId), hashing.sha256(report.toString()), "success", null, UUID.randomUUID().toString().replace("-", ""));
@@ -102,9 +106,15 @@ public class ReportWorkflowService {
         var diagnosis = diagnoses.get(diagnosisRunId);
         if (diagnosis.state() != DiagnosisWorkflowService.State.COMPLETED) throw new Conflict("Diagnosis must be completed");
         if (rls != null) rls.authorize(diagnosis.accountId());
+        var existing = mapper.findReportByDiagnosisRunId(diagnosisRunId);
+        if (existing != null) return report(existing);
         Report report = new Report(UUID.randomUUID().toString(), diagnosisRunId, diagnosis.accountId(), diagnosis.tradeDate(), Status.DRAFT,
                 actor, null, null, 1, Instant.now(), null, null, null);
-        mapper.insertReport(persisted(report));
+        if (mapper.insertReport(persisted(report)) != 1) {
+            var concurrentReport = mapper.findReportByDiagnosisRunId(diagnosisRunId);
+            if (concurrentReport != null) return report(concurrentReport);
+            throw new IllegalStateException("Report draft was not created");
+        }
         audit.append(actor, "ops-console", List.of("report:write"), "report.create", report.id(), hashing.sha256(diagnosisRunId), hashing.sha256(report.toString()), "success", null, UUID.randomUUID().toString().replace("-", ""));
         if (outbox != null) outbox.stage("report", report.id(), "report.lifecycle.v1", Map.of("reportId", report.id(), "status", report.status().name()));
         return report;

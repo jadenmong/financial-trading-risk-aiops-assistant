@@ -64,6 +64,13 @@ export function listReports() {
   return api<Report[]>('/api/v1/reports?limit=100');
 }
 
+export function createReport(diagnosisRunId: string) {
+  return api<Report>('/api/v1/reports', {
+    method: 'POST',
+    body: JSON.stringify({ diagnosisRunId }),
+  });
+}
+
 export function listAuditEvents() {
   return api<AuditEvent[]>('/api/v1/audit-events');
 }

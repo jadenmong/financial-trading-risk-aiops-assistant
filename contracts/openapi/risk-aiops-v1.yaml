@@ -50,6 +50,11 @@ paths:
     post:
       operationId: createReportDraft
       security: [{ oidc: [report:write] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReport' }
       responses: { '201': { description: Draft created } }
   /api/v1/reports/{id}:
     get:
@@ -188,6 +193,12 @@ components:
       properties:
         accountId: { type: string, pattern: '^[A-Z0-9_-]{1,64}$' }
         tradeDate: { type: string, format: date }
+    CreateReport:
+      type: object
+      additionalProperties: false
+      required: [diagnosisRunId]
+      properties:
+        diagnosisRunId: { type: string, format: uuid }
     CreateIncident:
       type: object
       additionalProperties: false
