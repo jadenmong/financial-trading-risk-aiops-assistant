@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-akshare = ["akshare==1.18.83"]
+akshare = ["akshare==1.18.94"]
 test = ["httpx2==2.10.0", "pytest==9.1.1"]
 
 [tool.pytest.ini_options]
