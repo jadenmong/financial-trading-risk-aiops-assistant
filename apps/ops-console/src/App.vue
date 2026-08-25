@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
+import { ElMessage } from 'element-plus';
 import { en, zhCn } from 'element-plus/es/locale/index';
 import { useRoute } from 'vue-router';
 import {
@@ -77,6 +78,20 @@ function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') closeMobileNavigation();
 }
 
+async function handleSessionAction() {
+  if (session.accessToken) {
+    session.clear();
+    return;
+  }
+
+  try {
+    await beginLogin();
+  } catch (error) {
+    console.error('OIDC login redirect failed', error);
+    ElMessage.error(t('error.loginFailed'));
+  }
+}
+
 onMounted(() => {
   updateViewport();
   window.addEventListener('resize', updateViewport);
@@ -123,7 +138,7 @@ onBeforeUnmount(() => {
               <el-option :label="t('language.zhCN')" value="zh-CN" />
               <el-option :label="t('language.enUS')" value="en-US" />
             </el-select>
-            <el-button class="session-button" size="small" text @click="session.accessToken ? session.clear() : beginLogin">
+            <el-button class="session-button" size="small" text @click="handleSessionAction">
               <el-icon><SwitchButton /></el-icon>{{ session.accessToken ? t('header.logout') : t('header.login') }}
             </el-button>
           </div>
