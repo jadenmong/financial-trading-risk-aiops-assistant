@@ -4,6 +4,9 @@ import { api } from '../api/client.js';
 import { listReports, type Report } from '../api/operations.js';
 import { type MessageKey } from '../i18n/index.js';
 import { useI18n } from '../i18n/use-i18n.js';
+import ContentPanel from '../components/ContentPanel.vue';
+import PageIntro from '../components/PageIntro.vue';
+import StatusBadge from '../components/StatusBadge.vue';
 
 const reports = ref<Report[]>([]);
 const error = ref<MessageKey>();
@@ -30,15 +33,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <h1 class="page-title">{{ t('page.reports.title') }}</h1>
-  <p class="page-subtitle">{{ t('page.reports.subtitle') }}</p>
+  <PageIntro :title="t('page.reports.title')" :subtitle="t('page.reports.subtitle')" />
   <el-alert v-if="error" type="error" :title="t(error)" show-icon class="panel-alert" />
-  <div class="panel">
+  <ContentPanel>
     <el-table :data="reports" :empty-text="t('empty.reports')">
       <el-table-column prop="id" :label="t('column.report')" width="300" />
       <el-table-column prop="accountId" :label="t('column.account')" width="150" />
       <el-table-column prop="creator" :label="t('column.creator')" width="180" />
-      <el-table-column width="120" :label="t('column.status')"><template #default="{ row }">{{ enumText('reportStatus', row.status) }}</template></el-table-column>
+      <el-table-column width="120" :label="t('column.status')"><template #default="{ row }"><StatusBadge :label="enumText('reportStatus', row.status)" :value="row.status" /></template></el-table-column>
       <el-table-column prop="version" :label="t('column.version')" width="100" />
       <el-table-column :label="t('column.action')" width="160">
         <template #default="{ row }">
@@ -46,5 +48,5 @@ onMounted(async () => {
         </template>
       </el-table-column>
     </el-table>
-  </div>
+  </ContentPanel>
 </template>

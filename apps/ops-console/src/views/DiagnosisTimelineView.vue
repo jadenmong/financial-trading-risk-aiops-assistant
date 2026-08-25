@@ -5,6 +5,9 @@ import { api } from '../api/client.js';
 import { createReport } from '../api/operations.js';
 import { type MessageKey } from '../i18n/index.js';
 import { useI18n } from '../i18n/use-i18n.js';
+import ContentPanel from '../components/ContentPanel.vue';
+import PageIntro from '../components/PageIntro.vue';
+import StatusBadge from '../components/StatusBadge.vue';
 
 interface DiagnosisEvent { sequence: number; state: string; at: string; detail: string }
 interface DiagnosisRun { id: string; accountId: string; tradeDate: string; state: string; events: DiagnosisEvent[] }
@@ -37,17 +40,16 @@ async function createDiagnosis() {
 </script>
 
 <template>
-  <h1 class="page-title">{{ t('page.diagnosis.title') }}</h1>
-  <p class="page-subtitle">{{ t('page.diagnosis.subtitle') }}</p>
-  <el-button type="primary" :loading="loading" @click="createDiagnosis">{{ t('button.createDiagnosis') }}</el-button>
+  <PageIntro :title="t('page.diagnosis.title')" :subtitle="t('page.diagnosis.subtitle')" />
+  <div class="page-action-row"><el-button type="primary" :loading="loading" @click="createDiagnosis">{{ t('button.createDiagnosis') }}</el-button></div>
   <el-alert v-if="error" type="error" :title="t(error)" show-icon class="panel-alert" />
-  <div class="panel timeline-panel">
+  <ContentPanel class="timeline-panel">
     <el-timeline v-if="run">
       <el-timeline-item v-for="event in run.events" :key="event.sequence" :timestamp="event.at" :type="event.state === 'COMPLETED' ? 'success' : 'primary'">
-        <strong>{{ enumText('diagnosisState', event.state) }}</strong>
+        <StatusBadge :label="enumText('diagnosisState', event.state)" :value="event.state" />
         <div>{{ event.detail }}</div>
       </el-timeline-item>
     </el-timeline>
     <el-empty v-else :description="t('empty.diagnosis')" />
-  </div>
+  </ContentPanel>
 </template>

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { completeLogin } from '../api/auth.js';
 import { type MessageKey } from '../i18n/index.js';
 import { useI18n } from '../i18n/use-i18n.js';
+import ContentPanel from '../components/ContentPanel.vue';
 
 const router = useRouter();
 const error = ref<MessageKey>();
@@ -16,9 +17,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="panel">
-    <h2>{{ t('page.authCallback.title') }}</h2>
+  <div class="auth-callback-page">
+  <ContentPanel class="auth-callback-card" :title="t('page.authCallback.title')">
     <el-alert v-if="error" type="error" :title="t(error)" :closable="false" />
     <el-skeleton v-else animated :rows="3" />
+  </ContentPanel>
   </div>
 </template>

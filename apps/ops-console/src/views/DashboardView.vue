@@ -3,6 +3,10 @@ import { computed, onMounted, ref } from 'vue';
 import { getReconciliationBreaks, getRiskSnapshot, listIncidents, type Incident, type ReconciliationBreaks, type RiskSnapshot, type ToolEnvelope } from '../api/operations.js';
 import { type MessageKey } from '../i18n/index.js';
 import { useI18n } from '../i18n/use-i18n.js';
+import ContentPanel from '../components/ContentPanel.vue';
+import MetricCard from '../components/MetricCard.vue';
+import PageIntro from '../components/PageIntro.vue';
+import StatusBadge from '../components/StatusBadge.vue';
 
 const risk = ref<ToolEnvelope<RiskSnapshot>>();
 const reconciliation = ref<ToolEnvelope<ReconciliationBreaks>>();
@@ -27,23 +31,21 @@ const quality = computed(() => enumText('qualityStatus', risk.value?.meta?.quali
 </script>
 
 <template>
-  <h1 class="page-title">{{ t('page.dashboard.title') }}</h1>
-  <p class="page-subtitle">{{ t('page.dashboard.subtitle') }}</p>
+  <PageIntro :title="t('page.dashboard.title')" :subtitle="t('page.dashboard.subtitle')" />
   <el-alert v-if="error" type="error" :title="t(error)" show-icon class="panel-alert" />
   <div class="metric-grid">
-    <div class="metric"><span>{{ t('metric.grossExposure') }}</span><strong>{{ risk?.data?.grossExposure ?? '--' }}</strong></div>
-    <div class="metric"><span>{{ t('metric.activeBreaches') }}</span><strong class="critical">{{ breachCount }}</strong></div>
-    <div class="metric"><span>{{ t('metric.reconciliationBreaks') }}</span><strong class="warning">{{ breakCount }}</strong></div>
-    <div class="metric"><span>{{ t('metric.dataQuality') }}</span><strong>{{ quality }}</strong></div>
+    <MetricCard :label="t('metric.grossExposure')" :value="risk?.data?.grossExposure ?? '--'" />
+    <MetricCard :label="t('metric.activeBreaches')" :value="breachCount" tone="critical" />
+    <MetricCard :label="t('metric.reconciliationBreaks')" :value="breakCount" tone="warning" />
+    <MetricCard :label="t('metric.dataQuality')" :value="quality" tone="success" />
   </div>
-  <div class="panel">
-    <h3>{{ t('section.openIncidents') }}</h3>
+  <ContentPanel :title="t('section.openIncidents')">
     <el-table :data="incidents" :empty-text="t('empty.incidents')">
-      <el-table-column width="120" :label="t('column.severity')"><template #default="{ row }">{{ enumText('severity', row.severity) }}</template></el-table-column>
-      <el-table-column width="120" :label="t('column.status')"><template #default="{ row }">{{ enumText('incidentStatus', row.status) }}</template></el-table-column>
+      <el-table-column width="120" :label="t('column.severity')"><template #default="{ row }"><StatusBadge :label="enumText('severity', row.severity)" :value="row.severity" /></template></el-table-column>
+      <el-table-column width="120" :label="t('column.status')"><template #default="{ row }"><StatusBadge :label="enumText('incidentStatus', row.status)" :value="row.status" /></template></el-table-column>
       <el-table-column prop="accountId" :label="t('column.account')" width="150" />
       <el-table-column prop="title" :label="t('column.title')" />
       <el-table-column prop="evidenceId" :label="t('column.evidence')" width="220" />
     </el-table>
-  </div>
+  </ContentPanel>
 </template>
