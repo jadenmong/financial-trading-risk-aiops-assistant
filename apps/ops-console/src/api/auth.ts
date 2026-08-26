@@ -1,13 +1,13 @@
-import { createPkce } from './client.js';
+import { createOidcState, createPkce } from './client.js';
 import { useSessionStore } from '../stores/session.js';
 
 const issuer = import.meta.env.VITE_OIDC_ISSUER ?? 'http://localhost:8081/realms/risk-aiops';
 const clientId = import.meta.env.VITE_OIDC_CLIENT_ID ?? 'ops-console';
-const scopes = 'openid profile market:read risk:read reconciliation:read report:preview incident:read incident:write system:read evidence:read diagnosis:read diagnosis:write report:read report:write report:approve audit:read';
+const scopes = 'openid market:read risk:read reconciliation:read report:preview incident:read incident:write system:read evidence:read diagnosis:read diagnosis:write report:read report:write report:approve audit:read';
 
 export async function beginLogin(): Promise<void> {
   const { verifier, challenge } = await createPkce();
-  const state = crypto.randomUUID();
+  const state = createOidcState();
   sessionStorage.setItem('oidc.pkce.verifier', verifier);
   sessionStorage.setItem('oidc.state', state);
   const redirectUri = new URL('/auth/callback', window.location.origin).toString();

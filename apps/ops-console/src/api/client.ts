@@ -1,3 +1,4 @@
+import { sha256 } from '@noble/hashes/sha2.js';
 import { useSessionStore } from '../stores/session.js';
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -8,9 +9,18 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export async function createPkce(): Promise<{ verifier: string; challenge: string }> {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  const verifier = base64url(bytes);
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-  return { verifier, challenge: base64url(new Uint8Array(digest)) };
+  const verifier = createOidcState();
+  return { verifier, challenge: createPkceChallenge(verifier) };
 }
+
+export function createPkceChallenge(verifier: string): string {
+  return base64url(sha256(new TextEncoder().encode(verifier)));
+}
+
+export function createOidcState(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return base64url(bytes);
+}
+
 function base64url(bytes: Uint8Array): string { return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', ''); }
