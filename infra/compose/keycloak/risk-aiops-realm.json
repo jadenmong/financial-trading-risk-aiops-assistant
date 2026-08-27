@@ -23,7 +23,7 @@
       "redirectUris": ["http://localhost:5173/*", "http://192.168.1.88:5173/*"],
       "webOrigins": ["http://localhost:5173", "http://192.168.1.88:5173"],
       "optionalClientScopes": ["market:read", "risk:read", "reconciliation:read", "report:preview", "incident:read", "incident:write", "system:read", "evidence:read", "diagnosis:read", "diagnosis:write", "report:read", "report:write", "report:approve", "audit:read"],
-      "attributes": { "pkce.code.challenge.method": "S256" },
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "+" },
       "protocolMappers": [
         { "name": "mcp-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": { "included.client.audience": "risk-aiops-mcp", "access.token.claim": "true" } },
         { "name": "accounts", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-attribute-mapper", "config": { "user.attribute": "accounts", "claim.name": "accounts", "jsonType.label": "String", "multivalued": "true", "access.token.claim": "true" } },

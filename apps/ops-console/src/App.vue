@@ -19,7 +19,7 @@ import {
   UserFilled,
   Wallet,
 } from '@element-plus/icons-vue';
-import { beginLogin } from './api/auth.js';
+import { beginLogin, beginLogout } from './api/auth.js';
 import { type Locale, type MessageKey } from './i18n/index.js';
 import { useI18n } from './i18n/use-i18n.js';
 import { useSessionStore } from './stores/session.js';
@@ -80,7 +80,7 @@ function handleKeydown(event: KeyboardEvent) {
 
 async function handleSessionAction() {
   if (session.accessToken) {
-    session.clear();
+    beginLogout();
     return;
   }
 
