@@ -3,7 +3,6 @@ package com.jadenmong.riskaiops.config;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -33,9 +32,11 @@ public class SecurityConfig {
         } else {
             http.authorizeHttpRequests(auth -> auth
                     .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                    .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter())));
+                    .anyRequest().authenticated());
         }
+        // Reference mode keeps anonymous access to deterministic sample data, but
+        // still authenticates a valid Bearer token so workflow actors remain distinct.
+        http.oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter())));
         return http.build();
     }
 
@@ -54,10 +55,17 @@ public class SecurityConfig {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "app.reference-mode", havingValue = "false", matchIfMissing = true)
     JwtDecoder jwtDecoder(@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
-                          @Value("${app.jwt-audience}") String audience) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withIssuerLocation(issuer).build();
+                          @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:}") String jwkSetUri,
+                          @Value("${app.jwt-audience}") String audience,
+                          @Value("${app.reference-mode:false}") boolean referenceMode) {
+        NimbusJwtDecoder decoder = jwkSetUri.isBlank()
+                ? NimbusJwtDecoder.withIssuerLocation(issuer).build()
+                : NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        if (referenceMode) {
+            decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer));
+            return decoder;
+        }
         JwtClaimValidator<Object> audienceValidator = new JwtClaimValidator<>("aud", claim ->
                 claim instanceof String value && value.equals(audience)
                         || claim instanceof java.util.Collection<?> values && values.contains(audience));
