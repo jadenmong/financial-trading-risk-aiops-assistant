@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
-import { GatewayConfigSchema } from '../src/config.js';
+import { GatewayConfigSchema, productionViolations } from '../src/config.js';
 import { createApp } from '../src/http.js';
 
 const config = GatewayConfigSchema.parse({ allowedHosts: ['localhost'], allowedOrigins: ['http://localhost:5173'], referenceAuth: true });
@@ -27,6 +27,22 @@ describe('HTTP transport edge controls', () => {
     const response = await request(createApp({ config: unsafeConfig })).get('/health/ready');
     expect(response.status).toBe(503);
     expect(response.body.violations).toContain('REFERENCE_AUTH must be false');
+  });
+
+  it('requires a DeepSeek key and HTTPS endpoint in production', () => {
+    const unsafeModelConfig = GatewayConfigSchema.parse({
+      runtimeMode: 'production',
+      allowedHosts: ['gateway.example.com'],
+      allowedOrigins: ['https://console.example.com'],
+      referenceAuth: false,
+      riskCoreMode: 'http',
+      modelProvider: 'deepseek',
+      deepseekBaseUrl: 'http://api.deepseek.com',
+      issuer: 'https://identity.example.com/realms/risk-aiops',
+      gatewayClientSecret: 'test-only',
+      auditPath: '/managed/audit.ndjson',
+    });
+    expect(productionViolations(unsafeModelConfig)).toEqual(expect.arrayContaining(['DEEPSEEK_API_KEY is required', 'DEEPSEEK_BASE_URL must use HTTPS']));
   });
 
   it('rejects invalid Host and Origin before MCP handling', async () => {

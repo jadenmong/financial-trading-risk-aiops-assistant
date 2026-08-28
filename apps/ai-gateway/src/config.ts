@@ -17,7 +17,10 @@ export const GatewayConfigSchema = z.object({
   allowedHosts: z.array(z.string().min(1)).min(1),
   allowedOrigins: z.array(z.string().min(1)).min(1),
   referenceAuth: z.boolean().default(false),
-  modelProvider: z.string().min(1).default('fake'),
+  modelProvider: z.enum(['fake', 'deepseek']).default('fake'),
+  deepseekBaseUrl: z.url().default('https://api.deepseek.com'),
+  deepseekModel: z.string().min(1).default('deepseek-v4-pro'),
+  deepseekApiKey: z.string().min(1).optional(),
   riskCoreMode: z.string().min(1).default('http'),
   auditPath: z.string().min(1).default('runtime/gateway-audit.ndjson'),
   rateLimitWindowMs: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
@@ -47,6 +50,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     allowedOrigins: csv(env.MCP_ALLOWED_ORIGINS, ['http://localhost:5173']),
     referenceAuth: booleanFromString.parse(env.REFERENCE_AUTH ?? 'false'),
     modelProvider: env.MODEL_PROVIDER,
+    deepseekBaseUrl: env.DEEPSEEK_BASE_URL,
+    deepseekModel: env.DEEPSEEK_MODEL,
+    deepseekApiKey: env.DEEPSEEK_API_KEY,
     riskCoreMode: env.RISK_CORE_MODE,
     auditPath: env.AUDIT_PATH,
     rateLimitWindowMs: env.MCP_RATE_LIMIT_WINDOW_MS,
@@ -60,6 +66,8 @@ export function productionViolations(config: GatewayConfig): string[] {
   if (config.referenceAuth) violations.push('REFERENCE_AUTH must be false');
   if (config.riskCoreMode === 'sample') violations.push('RISK_CORE_MODE=sample is forbidden');
   if (config.modelProvider === 'fake') violations.push('MODEL_PROVIDER=fake is forbidden');
+  if (config.modelProvider === 'deepseek' && !config.deepseekApiKey) violations.push('DEEPSEEK_API_KEY is required');
+  if (config.modelProvider === 'deepseek' && new URL(config.deepseekBaseUrl).protocol !== 'https:') violations.push('DEEPSEEK_BASE_URL must use HTTPS');
   if (!config.gatewayClientSecret) violations.push('GATEWAY_CLIENT_SECRET is required');
   if (config.issuer.includes('localhost') || config.issuer.includes('127.0.0.1')) violations.push('OIDC issuer must not be localhost');
   if (config.auditPath.startsWith('runtime/')) violations.push('AUDIT_PATH must point at managed persistent storage');

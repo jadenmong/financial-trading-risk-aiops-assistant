@@ -18,6 +18,7 @@ import {
 } from './schemas.js';
 import type { TokenExchange } from './token-exchange.js';
 import { ToolService } from './tool-service.js';
+import { FakeModelProvider, type ModelProvider } from './model-provider.js';
 
 export interface ServerOptions {
   authInfo?: AuthInfo;
@@ -25,6 +26,7 @@ export interface ServerOptions {
   audit?: AuditSink;
   tokenExchange?: TokenExchange;
   auditPath?: string;
+  model?: ModelProvider;
 }
 
 const metadata: Record<ToolName, { title: string; description: string }> = {
@@ -41,7 +43,7 @@ const metadata: Record<ToolName, { title: string; description: string }> = {
 export function createFinancialRiskMcpServer(options: ServerOptions = {}): McpServer {
   const core = options.core ?? new SampleRiskCoreClient();
   const audit = options.audit ?? new NdjsonAuditSink(options.auditPath ?? 'runtime/gateway-audit.ndjson');
-  const service = new ToolService(core, audit, options.tokenExchange);
+  const service = new ToolService(core, audit, options.tokenExchange, options.model ?? new FakeModelProvider());
   const server = new McpServer({ name: 'financial-trading-risk-aiops-assistant', version: '1.0.0' });
   const scopes = options.authInfo?.scopes;
   const visible = (tool: ToolName) => !scopes || scopes.includes(ToolDefinitions[tool].scope);

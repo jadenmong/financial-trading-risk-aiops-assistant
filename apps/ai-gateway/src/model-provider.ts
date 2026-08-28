@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
+import type { GatewayConfig } from './config.js';
+
 const ModelOutputSchema = z.object({
   summary: z.string().min(1).max(4_000),
   evidenceIds: z.array(z.string()).max(100),
@@ -34,44 +36,48 @@ export class FakeModelProvider implements ModelProvider {
   }
 }
 
-export class OpenAIResponsesProvider implements ModelProvider {
-  readonly name = 'openai';
-  constructor(readonly model = 'gpt-5.6-terra', private readonly apiKey = process.env.OPENAI_API_KEY ?? '') {}
+export class DeepSeekProvider implements ModelProvider {
+  readonly name = 'deepseek';
+
+  constructor(
+    readonly model = 'deepseek-v4-pro',
+    private readonly apiKey = process.env.DEEPSEEK_API_KEY ?? '',
+    private readonly baseUrl = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
+  ) {}
+
   async generate(request: ModelRequest): Promise<ModelOutput> {
-    if (!this.apiKey) throw new ProviderError('auth', 'OpenAI API key is not configured');
-    const response = await providerFetch('https://api.openai.com/v1/responses', {
-      method: 'POST', headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: this.model, store: false, reasoning: { effort: request.reasoningEffort }, safety_identifier: request.safetyIdentifier,
-        instructions: request.system, input: JSON.stringify(request.input), text: { format: { type: 'json_schema', name: 'diagnosis', strict: true, schema: modelJsonSchema } } }),
+    if (!this.apiKey) throw new ProviderError('auth', 'DeepSeek API key is not configured');
+    const endpoint = new URL('chat/completions', ensureTrailingSlash(this.baseUrl));
+    const thinkingEnabled = request.reasoningEffort === 'medium';
+    const response = await providerFetch(endpoint.toString(), {
+      method: 'POST',
+      headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: 'system', content: `${request.system}\nReturn one JSON object matching this schema exactly: ${JSON.stringify(modelJsonSchema)}` },
+          { role: 'user', content: JSON.stringify(request.input) },
+        ],
+        response_format: { type: 'json_object' },
+        thinking: { type: thinkingEnabled ? 'enabled' : 'disabled' },
+        ...(thinkingEnabled ? { reasoning_effort: request.reasoningEffort } : {}),
+        max_tokens: 1_200,
+        stream: false,
+      }),
       signal: AbortSignal.timeout(8_000),
     });
-    if (response.status === 429) throw new ProviderError('rate_limit', 'OpenAI rate limited');
-    if (response.status >= 500) throw new ProviderError('server', `OpenAI returned ${response.status}`);
-    if (response.status === 401 || response.status === 403) throw new ProviderError('auth', 'OpenAI authentication failed');
-    if (!response.ok) throw new ProviderError('refusal', `OpenAI request rejected with ${response.status}`);
-    const body = await response.json() as { output_text?: string };
-    return parseOutput(body.output_text);
+    if (response.status === 429) throw new ProviderError('rate_limit', 'DeepSeek rate limited');
+    if (response.status >= 500) throw new ProviderError('server', `DeepSeek returned ${response.status}`);
+    if ([401, 402, 403].includes(response.status)) throw new ProviderError('auth', 'DeepSeek authentication or account balance check failed');
+    if (!response.ok) throw new ProviderError('refusal', `DeepSeek request rejected with ${response.status}`);
+    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    return parseOutput(body.choices?.[0]?.message?.content);
   }
 }
 
-export class AnthropicProvider implements ModelProvider {
-  readonly name = 'anthropic';
-  constructor(readonly model = 'claude-sonnet-5', private readonly apiKey = process.env.ANTHROPIC_API_KEY ?? '') {}
-  async generate(request: ModelRequest): Promise<ModelOutput> {
-    if (!this.apiKey) throw new ProviderError('auth', 'Anthropic API key is not configured');
-    const response = await providerFetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': this.apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: this.model, max_tokens: 1_200, system: request.system, messages: [{ role: 'user', content: JSON.stringify(request.input) }] }),
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (response.status === 429) throw new ProviderError('rate_limit', 'Anthropic rate limited');
-    if (response.status >= 500) throw new ProviderError('server', `Anthropic returned ${response.status}`);
-    if (response.status === 401 || response.status === 403) throw new ProviderError('auth', 'Anthropic authentication failed');
-    if (!response.ok) throw new ProviderError('refusal', `Anthropic request rejected with ${response.status}`);
-    const body = await response.json() as { content?: Array<{ type: string; text?: string }> };
-    return parseOutput(body.content?.find(({ type }) => type === 'text')?.text);
-  }
+export function createConfiguredModelProvider(config: GatewayConfig): ModelProvider {
+  if (config.modelProvider === 'deepseek') return new DeepSeekProvider(config.deepseekModel, config.deepseekApiKey, config.deepseekBaseUrl);
+  return new FakeModelProvider();
 }
 
 export class GovernedModelRouter {
@@ -121,6 +127,8 @@ function parseOutput(value: string | undefined): ModelOutput {
   if (!value) throw new ProviderError('schema', 'model returned no structured output');
   try { return ModelOutputSchema.parse(JSON.parse(value)); } catch { throw new ProviderError('schema', 'model output violated schema'); }
 }
+
+function ensureTrailingSlash(value: string): string { return value.endsWith('/') ? value : `${value}/`; }
 
 function findEvidenceIds(value: unknown): string[] {
   const ids = new Set<string>();

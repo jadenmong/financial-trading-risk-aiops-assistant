@@ -209,14 +209,25 @@ Windows 可将 `cwd` 写成正斜杠路径，例如 `D:/projects/financial-tradi
 
 仓库默认使用 `APP_RUNTIME_MODE=reference`、`REFERENCE_MODE=true`、`REFERENCE_AUTH=true` 和 `MODEL_PROVIDER=fake`，因此 CI、smoke 和 Compose 不需要外部模型密钥。真实模型仅用于受控的手工环境；配置字段见 [.env.example](.env.example) 和 [Gateway 配置示例](apps/ai-gateway/.env.example)。
 
+真实 AI 使用 DeepSeek OpenAI-compatible API。将以下值写入本地 `.env` 后重启 AI Gateway；参考环境仍可不配置密钥并继续使用确定性 fake model：
+
+```dotenv
+MODEL_PROVIDER=deepseek
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-pro
+DEEPSEEK_API_KEY=your-secret-from-external-secret-store
+```
+
+DeepSeek 只参与日报预览和对账差异解释，返回的证据 ID 必须来自 Risk Core 的已验证输入；风险数值、权限和工作流状态不交给模型计算。
+
 生产模式必须显式设置 `APP_RUNTIME_MODE=production`，并提供真实 OIDC issuer、Gateway confidential client secret、服务端 mTLS、外部 secret store、授权行情源、PostgreSQL、Keycloak、MinIO/WORM 对象存储和 Redpanda。Risk Core 与 AI Gateway 的 readiness 会在发现 reference/sample/fake 路径或关键生产依赖缺失时返回 `DOWN`。
 
 模型调用受以下硬边界约束：
 
 - 单次调用预算 8 秒；单次运行最多 12 个 step、6 次模型调用、30 秒和估算 0.25 美元。
-- 仅 timeout、429、5xx 或熔断可触发模型降级；鉴权失败、安全拒绝和 Schema 错误不降级。
+- timeout、429、5xx 或熔断错误标记为可重试；鉴权失败、安全拒绝和 Schema 错误 fail closed，不自动切换模型。
 - 模型输出始终视为不可信输入，不能修改授权、预算、金融计算结果或交易状态。
-- OpenAI/Anthropic 的真实密钥不得写入仓库，应由外部 secret store 注入。
+- DeepSeek 的真实密钥不得写入仓库，应通过 `DEEPSEEK_API_KEY` 由外部 secret store 注入。
 
 完整限制、已知风险与评测范围见[模型卡](docs/model-card.md)。
 
@@ -227,7 +238,7 @@ Windows 可将 `cwd` 写成正斜杠路径，例如 `D:/projects/financial-tradi
 | 范围 | 状态 |
 | --- | --- |
 | `npm run check` 全量本地检查 | `PASS` |
-| Node 类型检查、8 个测试套件 / 22 个测试、Gateway 与 Console 构建 | `PASS` |
+| Node 类型检查、8 个测试套件 / 27 个 Gateway 测试、Gateway 与 Console 构建 | `PASS` |
 | Java 风险公式、安全守卫与生产 readiness 测试；12 个测试、1 个 Testcontainers 测试因本机无 Docker 跳过；可执行 JAR 构建 | `PASS_LOCAL` |
 | Python 适配器测试 | `PASS` |
 | 100 条越权/提示注入 fake-model eval | `PASS`，50/50 拒绝，泄漏 0 |

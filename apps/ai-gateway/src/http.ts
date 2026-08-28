@@ -13,6 +13,7 @@ import { validateHostAndOrigin } from './http-security.js';
 import { HttpRiskCoreClient, SampleRiskCoreClient, type RiskCoreClient } from './risk-core-client.js';
 import { createFinancialRiskMcpServer } from './server.js';
 import { KeycloakTokenExchange } from './token-exchange.js';
+import { createConfiguredModelProvider } from './model-provider.js';
 
 const logger = pino({ name: 'ai-gateway', level: process.env.LOG_LEVEL ?? 'info' });
 
@@ -28,6 +29,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   const core = dependencies.core ?? (config.riskCoreMode === 'sample' ? new SampleRiskCoreClient() : new HttpRiskCoreClient(config.riskCoreUrl));
   const tokenExchange = config.referenceAuth ? undefined : createTokenExchange(config);
   const audit = new NdjsonAuditSink(config.auditPath);
+  const model = createConfiguredModelProvider(config);
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '256kb', strict: true }));
@@ -47,7 +49,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     bearer_methods_supported: ['header'],
   }));
 
-  const handler = createMcpHandler((context) => createFinancialRiskMcpServer({ ...(context.authInfo ? { authInfo: context.authInfo } : {}), core, audit, ...(tokenExchange ? { tokenExchange } : {}) }), {
+  const handler = createMcpHandler((context) => createFinancialRiskMcpServer({ ...(context.authInfo ? { authInfo: context.authInfo } : {}), core, audit, model, ...(tokenExchange ? { tokenExchange } : {}) }), {
     legacy: 'stateless', responseMode: 'auto', onerror: (error) => logger.error({ err: error }, 'MCP handler error'),
   });
   const mcpRateLimiter = rateLimit({

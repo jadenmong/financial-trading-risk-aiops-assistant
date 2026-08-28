@@ -7,6 +7,10 @@ import { RiskCoreError, type RiskCoreClient } from './risk-core-client.js';
 import { ToolDefinitions, type ToolName } from './schemas.js';
 import { subjectOf } from './auth.js';
 import type { TokenExchange } from './token-exchange.js';
+import { ProviderError, type ModelProvider } from './model-provider.js';
+
+const ModelTools = new Set<ToolName>(['generate_daily_report', 'explain_reconciliation_breaks']);
+const ReportSynthesisPrompt = 'Explain only the supplied, verified evidence. Never provide investment advice or instructions to place, cancel, or modify a trade.';
 
 export interface ToolEnvelope {
   schemaVersion: '1.0';
@@ -23,8 +27,8 @@ export interface ToolEnvelope {
     dataAsOf?: string;
     qualityStatus: 'GOOD' | 'DEGRADED' | 'STALE' | 'REJECTED';
     subject: string;
-    modelVersion: null;
-    promptVersion: null;
+    modelVersion: string | null;
+    promptVersion: string | null;
     generatedAt: string;
     durationMs: number;
     evidenceRefs: EvidenceRef[];
@@ -36,6 +40,7 @@ export class ToolService {
     private readonly core: RiskCoreClient,
     private readonly audit: AuditSink,
     private readonly tokenExchange?: TokenExchange,
+    private readonly model?: ModelProvider,
   ) {}
 
   async execute(tool: ToolName, untrustedInput: unknown, authInfo?: AuthInfo): Promise<ToolEnvelope> {
@@ -50,10 +55,28 @@ export class ToolService {
     try {
       const coreToken = authInfo && this.tokenExchange ? await this.tokenExchange.exchange(authInfo.token, [requiredScope]) : undefined;
       const result = await this.core.execute(tool, input, coreToken);
+      let data = result.data;
+      let modelVersion: string | null = null;
+      let promptVersion: string | null = null;
+      if (this.model && ModelTools.has(tool)) {
+        const modelOutput = await this.model.generate({
+          system: ReportSynthesisPrompt,
+          input: { data: result.data, evidenceRefs: result.evidenceRefs, qualityStatus: result.qualityStatus },
+          safetyIdentifier: `mcp_${request.requestId.replaceAll('-', '').slice(0, 24)}`,
+          reasoningEffort: 'low',
+        });
+        const allowedEvidenceIds = new Set(result.evidenceRefs.map(({ evidenceId }) => evidenceId));
+        if (modelOutput.evidenceIds.some((evidenceId) => !allowedEvidenceIds.has(evidenceId))) {
+          throw new ProviderError('schema', 'model referenced evidence outside the verified input');
+        }
+        data = { ...result.data, aiSummary: modelOutput.summary, aiEvidenceIds: modelOutput.evidenceIds, requiresReview: modelOutput.requiresReview };
+        modelVersion = `${this.model.name}/${this.model.model}`;
+        promptVersion = 'report-synthesis-v1';
+      }
       const output: ToolEnvelope = {
         schemaVersion: '1.0',
         ok: true,
-        data: result.data,
+        data,
         meta: {
           requestId: request.requestId,
           traceId: request.traceId,
@@ -64,8 +87,8 @@ export class ToolService {
           dataAsOf: result.dataAsOf,
           qualityStatus: result.qualityStatus,
           subject: subjectOf(authInfo),
-          modelVersion: null,
-          promptVersion: null,
+          modelVersion,
+          promptVersion,
           generatedAt: new Date().toISOString(),
           durationMs: elapsedMs(request.startedAt),
           evidenceRefs: result.evidenceRefs,
@@ -146,6 +169,7 @@ export class ToolService {
 
   private mapError(error: unknown): { code: string; message: string; retryable: boolean } {
     if (error instanceof RiskCoreError) return { code: error.code, message: error.message, retryable: error.retryable };
+    if (error instanceof ProviderError) return { code: `MODEL_${error.kind.toUpperCase()}`, message: error.message, retryable: ['timeout', 'rate_limit', 'server', 'circuit_open'].includes(error.kind) };
     if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) return { code: 'RISK_CORE_TIMEOUT', message: 'Risk Core timed out', retryable: true };
     return { code: 'INTERNAL_ERROR', message: 'Request failed; use traceId for investigation', retryable: false };
   }
