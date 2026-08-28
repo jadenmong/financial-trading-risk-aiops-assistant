@@ -2,16 +2,21 @@ package com.jadenmong.riskaiops.service;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
 import com.jadenmong.riskaiops.audit.HashChainAuditService;
 import com.jadenmong.riskaiops.repository.WorkflowStateMapper;
 
@@ -36,18 +41,23 @@ public class ReportWorkflowService {
     private final WorkflowStateMapper mapper;
     private final RlsSessionService rls;
     private final TransactionalOutboxService outbox;
+    private final ReadOnlyToolFacade tools;
+    private final ObjectMapper jsonMapper;
 
     public ReportWorkflowService(DiagnosisWorkflowService diagnoses, EvidenceService hashing, HashChainAuditService audit, ImmutableObjectStore objectStore) {
         this.diagnoses = diagnoses; this.hashing = hashing; this.audit = audit; this.objectStore = objectStore;
         this.mapper = null; this.rls = null; this.outbox = null;
+        this.tools = null; this.jsonMapper = new ObjectMapper();
     }
 
     @Autowired
     public ReportWorkflowService(DiagnosisWorkflowService diagnoses, EvidenceService hashing, HashChainAuditService audit,
                                  ImmutableObjectStore objectStore, ObjectProvider<WorkflowStateMapper> mapperProvider,
-                                 ObjectProvider<RlsSessionService> rlsProvider, ObjectProvider<TransactionalOutboxService> outboxProvider) {
+                                 ObjectProvider<RlsSessionService> rlsProvider, ObjectProvider<TransactionalOutboxService> outboxProvider,
+                                 ObjectProvider<ReadOnlyToolFacade> toolsProvider, ObjectProvider<ObjectMapper> mapperObjectProvider) {
         this.diagnoses = diagnoses; this.hashing = hashing; this.audit = audit; this.objectStore = objectStore;
         this.mapper = mapperProvider.getIfAvailable(); this.rls = rlsProvider.getIfAvailable(); this.outbox = outboxProvider.getIfAvailable();
+        this.tools = toolsProvider.getIfAvailable(); this.jsonMapper = mapperObjectProvider.getIfAvailable();
     }
 
     @Transactional
@@ -75,8 +85,9 @@ public class ReportWorkflowService {
         Instant now = Instant.now(); String hash = null, uri = null;
         Status status = decision == Decision.APPROVE ? Status.APPROVED : Status.REJECTED;
         if (status == Status.APPROVED) {
-            String json = "{\"id\":\"" + current.id() + "\",\"diagnosisRunId\":\"" + current.diagnosisRunId() + "\",\"version\":" + (current.version() + 1) + "}";
-            String html = "<!doctype html><html lang=\"zh-CN\"><body><h1>风险运维报告</h1><p>" + current.id() + "</p></body></html>";
+            ReportContent content = buildContent(current, actor, reason, now);
+            String json = content.json();
+            String html = content.html();
             hash = hashing.sha256(json + "\n" + html);
             uri = objectStore.putIfAbsent(current.id() + "/" + hash, json, html);
         }
@@ -140,8 +151,9 @@ public class ReportWorkflowService {
         Instant now = Instant.now(); String hash = null, uri = null;
         Status status = decision == Decision.APPROVE ? Status.APPROVED : Status.REJECTED;
         if (status == Status.APPROVED) {
-            String json = "{\"id\":\"" + current.id() + "\",\"diagnosisRunId\":\"" + current.diagnosisRunId() + "\",\"version\":" + (current.version() + 1) + "}";
-            String html = "<!doctype html><html lang=\"zh-CN\"><body><h1>Risk AIOps Report</h1><p>" + current.id() + "</p></body></html>";
+            ReportContent content = buildContent(current, actor, reason, now);
+            String json = content.json();
+            String html = content.html();
             hash = hashing.sha256(json + "\n" + html);
             uri = objectStore.putIfAbsent(current.id() + "/" + hash, json, html);
         }
@@ -166,6 +178,94 @@ public class ReportWorkflowService {
         return new Report(row.id(), row.diagnosisRunId(), row.accountId(), row.tradeDate(), Status.valueOf(row.status()),
                 row.creator(), row.decidedBy(), row.decisionReason(), row.version(), row.createdAt(),
                 row.decidedAt(), row.sha256(), row.objectUri());
+    }
+
+    /**
+     * Builds the immutable report snapshot at approval time. Numeric facts come
+     * from the deterministic read-only tools; model-generated text is kept
+     * explicitly separate so it cannot change financial values.
+     */
+    private ReportContent buildContent(Report current, String approver, String decisionReason, Instant decidedAt) {
+        var diagnosis = diagnoses.get(current.diagnosisRunId());
+        Map<String, Object> document = new LinkedHashMap<>();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("reportId", current.id());
+        metadata.put("diagnosisRunId", current.diagnosisRunId());
+        metadata.put("accountId", current.accountId());
+        metadata.put("tradeDate", current.tradeDate());
+        metadata.put("version", current.version() + 1);
+        metadata.put("status", Status.APPROVED.name());
+        metadata.put("createdBy", current.creator());
+        metadata.put("approvedBy", approver);
+        metadata.put("createdAt", current.createdAt());
+        metadata.put("approvedAt", decidedAt);
+        metadata.put("decisionReason", decisionReason);
+        document.put("report", metadata);
+
+        Map<String, Object> diagnosisSnapshot = new LinkedHashMap<>();
+        diagnosisSnapshot.put("state", diagnosis.state());
+        diagnosisSnapshot.put("createdBy", diagnosis.createdBy());
+        diagnosisSnapshot.put("createdAt", diagnosis.createdAt());
+        diagnosisSnapshot.put("events", diagnosis.events());
+        document.put("diagnosis", diagnosisSnapshot);
+
+        document.put("riskSnapshot", safeTool("position-risk", () -> tools == null ? unavailable("Risk tool is not configured")
+                : tools.positionRisk(current.accountId(), null, approver, null)));
+        document.put("reconciliation", safeTool("order-reconciliation", () -> tools == null ? unavailable("Reconciliation tool is not configured")
+                : tools.reconcile(current.accountId(), current.tradeDate(), approver, null)));
+
+        Map<String, Object> ai = new LinkedHashMap<>();
+        ai.put("summary", "本报告的金融数值和事实由 Risk Core 确定性计算生成。AI 解释摘要未在审批链路内生成，需人工复核风险与对账结果。");
+        ai.put("requiresReview", true);
+        ai.put("source", "risk-core-deterministic");
+        document.put("ai", ai);
+        document.put("disclaimer", "本报告仅用于风险运维诊断和审计留痕，不构成投资建议、交易指令或估值意见。");
+
+        String json = serialize(document);
+        return new ReportContent(json, renderHtml(document, current));
+    }
+
+    private Object safeTool(String name, Supplier<Object> operation) {
+        try { return operation.get(); }
+        catch (RuntimeException exception) { return unavailable(name + " unavailable: " + exception.getMessage()); }
+    }
+
+    private static Map<String, Object> unavailable(String reason) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "UNAVAILABLE"); result.put("reason", reason);
+        return result;
+    }
+
+    private String serialize(Object value) {
+        if (jsonMapper == null) return "{\"report\":\"content generated\"}";
+        try { return jsonMapper.writer().with(SerializationFeature.INDENT_OUTPUT).writeValueAsString(value); }
+        catch (JacksonException exception) { throw new IllegalStateException("Cannot serialize report content", exception); }
+    }
+
+    private String renderHtml(Map<String, Object> document, Report current) {
+        String risk = escapeHtml(serialize(document.get("riskSnapshot")));
+        String reconciliation = escapeHtml(serialize(document.get("reconciliation")));
+        String events = document.get("diagnosis") instanceof Map<?, ?> diagnosis
+                ? escapeHtml(serialize(diagnosis.get("events"))) : "[]";
+        return "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><title>风险运维报告 "
+                + escapeHtml(current.id()) + "</title><style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:32px auto;padding:0 20px;color:#17202a}"
+                + "table{border-collapse:collapse;width:100%;margin:12px 0 24px}td,th{border:1px solid #d8dee4;padding:8px;text-align:left}th{background:#f3f6f8}"
+                + "pre{background:#f6f8fa;padding:16px;overflow:auto;border-radius:6px}small{color:#57606a}</style></head><body>"
+                + "<h1>风险运维报告</h1><table><tr><th>报告 ID</th><td>" + escapeHtml(current.id()) + "</td></tr>"
+                + "<tr><th>诊断运行</th><td>" + escapeHtml(current.diagnosisRunId()) + "</td></tr>"
+                + "<tr><th>账户</th><td>" + escapeHtml(current.accountId()) + "</td></tr>"
+                + "<tr><th>交易日</th><td>" + escapeHtml(String.valueOf(current.tradeDate())) + "</td></tr>"
+                + "<tr><th>创建人</th><td>" + escapeHtml(current.creator()) + "</td></tr>"
+                + "<tr><th>批准人</th><td>" + escapeHtml(String.valueOf(document.get("report") instanceof Map<?, ?> metadata ? metadata.get("approvedBy") : "")) + "</td></tr>"
+                + "<tr><th>批准时间</th><td>" + escapeHtml(String.valueOf(document.get("report") instanceof Map<?, ?> metadata ? metadata.get("approvedAt") : "")) + "</td></tr>"
+                + "<tr><th>审批理由</th><td>" + escapeHtml(String.valueOf(document.get("report") instanceof Map<?, ?> metadata ? metadata.get("decisionReason") : "")) + "</td></tr></table>"
+                + "<h2>风险快照</h2><pre>" + risk + "</pre><h2>对账结果</h2><pre>" + reconciliation + "</pre>"
+                + "<h2>诊断事件</h2><pre>" + events + "</pre><p><small>本报告仅用于风险运维诊断和审计留痕，不构成投资建议、交易指令或估值意见。</small></p></body></html>";
+    }
+
+    private static String escapeHtml(String value) {
+        return value == null ? "" : value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
     }
     public static class Conflict extends RuntimeException { public Conflict(String message) { super(message); } }
     public static class NotFound extends RuntimeException { public NotFound(String message) { super(message); } }

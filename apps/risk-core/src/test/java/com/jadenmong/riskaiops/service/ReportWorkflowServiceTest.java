@@ -74,6 +74,8 @@ class ReportWorkflowServiceTest {
 
         var content = service.content(approved.id());
         assertThat(content.json()).contains(approved.id());
+        assertThat(content.json()).contains("accountId", "diagnosis", "riskSnapshot", "reconciliation", "requiresReview");
         assertThat(content.html()).contains(approved.id());
+        assertThat(content.html()).contains("风险快照", "对账结果", "诊断事件", "checker");
     }
 }
