@@ -22,7 +22,11 @@ public class ReportWorkflowService {
     public record Report(String id, String diagnosisRunId, String accountId, LocalDate tradeDate, Status status,
                          String creator, String decidedBy, String decisionReason, int version, Instant createdAt,
                          Instant decidedAt, String sha256, String objectUri) {}
-    public interface ImmutableObjectStore { String putIfAbsent(String key, String json, String html); }
+    public record ReportContent(String json, String html) {}
+    public interface ImmutableObjectStore {
+        String putIfAbsent(String key, String json, String html);
+        default ReportContent get(String objectUri) { throw new NotFound("Report content is unavailable"); }
+    }
 
     private final Map<String, Report> reports = new ConcurrentHashMap<>();
     private final DiagnosisWorkflowService diagnoses;
@@ -100,6 +104,14 @@ public class ReportWorkflowService {
             return mapper.listReports(Math.max(1, Math.min(limit, 200))).stream().map(this::report).toList();
         }
         return reports.values().stream().limit(Math.max(1, Math.min(limit, 200))).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ReportContent content(String id) {
+        Report report = get(id);
+        if (report.status() != Status.APPROVED || report.objectUri() == null) throw new Conflict("Report content is available only after approval");
+        if (rls != null) rls.authorize(report.accountId());
+        return objectStore.get(report.objectUri());
     }
 
     private Report createPersistent(String diagnosisRunId, String actor) {

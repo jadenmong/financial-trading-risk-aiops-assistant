@@ -1,6 +1,7 @@
 package com.jadenmong.riskaiops.api;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,6 +13,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,6 +38,7 @@ import com.jadenmong.riskaiops.service.ReportWorkflowService;
 @RestController
 @RequestMapping("/api/v1")
 public class WorkflowController {
+    public enum ReportContentFormat { html, json }
     public record CreateDiagnosis(@NotBlank @Pattern(regexp = "^[A-Z0-9_-]{1,64}$") String accountId, @NotNull LocalDate tradeDate) {}
     public record CreateReport(@NotBlank String diagnosisRunId) {}
     public record DecideReport(@NotNull ReportWorkflowService.Decision decision, @NotBlank String reason) {}
@@ -76,6 +80,21 @@ public class WorkflowController {
     @GetMapping("/reports/{id}")
     @PreAuthorize("@accountAccessGuard.allowed(authentication,null,'report:read')")
     public ReportWorkflowService.Report report(@PathVariable String id) { return reports.get(id); }
+
+    @GetMapping("/reports/{id}/content")
+    @PreAuthorize("@accountAccessGuard.allowed(authentication,null,'report:read')")
+    public ResponseEntity<byte[]> reportContent(@PathVariable String id,
+                                                @RequestParam(defaultValue = "html") ReportContentFormat format) {
+        var content = reports.content(id);
+        String body = format == ReportContentFormat.html ? content.html() : content.json();
+        MediaType contentType = format == ReportContentFormat.html ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON;
+        String filename = "risk-report-" + id + "." + format.name();
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(body.getBytes(StandardCharsets.UTF_8));
+    }
 
     @PostMapping("/reports/{id}/decisions")
     @PreAuthorize("@accountAccessGuard.allowed(authentication,null,'report:approve')")

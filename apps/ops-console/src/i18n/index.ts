@@ -72,6 +72,8 @@ const zhCN = {
   'column.eventHash': '事件哈希',
   'button.createDiagnosis': '创建诊断',
   'button.approve': '批准',
+  'button.viewReport': '查看报告',
+  'button.downloadReport': '下载报告',
   'empty.incidents': 'API 未返回事件',
   'empty.positions': 'API 未返回持仓',
   'empty.limitBreaches': 'API 未返回超限记录',
@@ -82,6 +84,7 @@ const zhCN = {
   'error.apiUnavailable': '接口暂时不可用',
   'error.diagnosisFailed': '诊断创建失败',
   'error.approvalFailed': '报告审批失败',
+  'error.reportContentFailed': '报告内容暂时不可用',
   'error.loginFailed': 'OIDC 登录失败',
 } as const;
 
@@ -156,6 +159,8 @@ const enUS: Messages = {
   'column.eventHash': 'Event hash',
   'button.createDiagnosis': 'Create diagnosis',
   'button.approve': 'Approve',
+  'button.viewReport': 'View report',
+  'button.downloadReport': 'Download report',
   'empty.incidents': 'No incidents returned by API',
   'empty.positions': 'No positions returned by API',
   'empty.limitBreaches': 'No breaches returned by API',
@@ -166,6 +171,7 @@ const enUS: Messages = {
   'error.apiUnavailable': 'API is temporarily unavailable',
   'error.diagnosisFailed': 'Failed to create diagnosis',
   'error.approvalFailed': 'Failed to approve report',
+  'error.reportContentFailed': 'Report content is temporarily unavailable',
   'error.loginFailed': 'OIDC login failed',
 };
 

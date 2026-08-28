@@ -8,6 +8,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export async function apiBlob(path: string, init: RequestInit = {}): Promise<Blob> {
+  const session = useSessionStore();
+  const response = await fetch(path, { ...init, headers: { ...(session.accessToken ? { authorization: `Bearer ${session.accessToken}` } : {}), ...init.headers } });
+  if (!response.ok) throw new Error(`API ${response.status}`);
+  return response.blob();
+}
+
 export async function createPkce(): Promise<{ verifier: string; challenge: string }> {
   const verifier = createOidcState();
   return { verifier, challenge: createPkceChallenge(verifier) };

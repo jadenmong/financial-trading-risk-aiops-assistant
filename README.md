@@ -102,7 +102,7 @@ flowchart LR
 | 只读源数据接入 | `POST /internal/v1/events` | 生产要求 mTLS + `ingest:write` scope；事件写入原始表并记录处置结果 |
 | 风险与对账查询 | `GET /api/v1/risk-snapshots`、`GET /api/v1/reconciliation-breaks` | 只读查询，账户级 ABAC + PostgreSQL RLS |
 | 诊断工作流 | `POST /api/v1/diagnoses`、`GET /api/v1/diagnoses/{id}` | 幂等创建，固定 DAG，运行和步骤持久化 |
-| 报告治理 | `GET/POST /api/v1/reports`、`POST /api/v1/reports/{id}/decisions` | maker-checker、`If-Match` 乐观锁、批准内容不可变 |
+| 报告治理 | `GET/POST /api/v1/reports`、`POST /api/v1/reports/{id}/decisions`、`GET /api/v1/reports/{id}/content` | maker-checker、`If-Match` 乐观锁、批准内容不可变；批准后可授权预览/下载 HTML 或 JSON |
 | 证据与审计 | `GET /api/v1/evidence/{id}`、`GET /api/v1/audit-events` | SHA-256 内容寻址，审计 fail closed |
 | 事故处置 | `GET/POST /api/v1/incidents`、`POST /api/v1/incidents/{id}/ack`、`POST /api/v1/incidents/{id}/close` | 仅记录运维处置，不修改交易、持仓或限额 |
 | 生产就绪门禁 | Risk Core 与 AI Gateway readiness | `APP_RUNTIME_MODE=production` 时拒绝 reference/sample/fake、缺失 mTLS、缺失 secret、localhost issuer 和非授权行情源 |

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -49,5 +51,29 @@ class ReportWorkflowServiceTest {
 
         assertThat(repeated.id()).isEqualTo(first.id());
         assertThat(service.list(100)).containsExactly(first);
+    }
+
+    @Test
+    void readsImmutableContentAfterApproval() {
+        var evidence = new EvidenceService(new ObjectMapper());
+        var audit = new HashChainAuditService(evidence);
+        var diagnoses = new DiagnosisWorkflowService();
+        Map<String, ReportWorkflowService.ReportContent> documents = new HashMap<>();
+        var store = new ReportWorkflowService.ImmutableObjectStore() {
+            @Override public String putIfAbsent(String key, String json, String html) {
+                String uri = "minio://test/" + key;
+                documents.putIfAbsent(uri, new ReportWorkflowService.ReportContent(json, html));
+                return uri;
+            }
+            @Override public ReportWorkflowService.ReportContent get(String uri) { return documents.get(uri); }
+        };
+        var service = new ReportWorkflowService(diagnoses, evidence, audit, store);
+        var diagnosis = diagnoses.create("idem-report-content", "ACC_ALPHA_01", LocalDate.parse("2026-08-07"), "maker");
+        var draft = service.create(diagnosis.id(), "maker");
+        var approved = service.decide(draft.id(), ReportWorkflowService.Decision.APPROVE, "verified", 1, "checker");
+
+        var content = service.content(approved.id());
+        assertThat(content.json()).contains(approved.id());
+        assertThat(content.html()).contains(approved.id());
     }
 }

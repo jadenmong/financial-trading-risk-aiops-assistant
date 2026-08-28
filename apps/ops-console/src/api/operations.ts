@@ -1,4 +1,4 @@
-import { api, createOidcState } from './client.js';
+import { api, apiBlob, createOidcState } from './client.js';
 
 export interface ToolEnvelope<T> {
   ok: boolean;
@@ -38,6 +38,10 @@ export interface Report {
   creator: string;
   status: string;
   version: number;
+  sha256?: string;
+  objectUri?: string;
+  decidedBy?: string;
+  decidedAt?: string;
 }
 
 export interface AuditEvent {
@@ -78,4 +82,8 @@ export function createDiagnosisIdempotencyKey(accountId: string, tradeDate: stri
 
 export function listAuditEvents() {
   return api<AuditEvent[]>('/api/v1/audit-events');
+}
+
+export function getReportContent(reportId: string, format: 'html' | 'json' = 'html') {
+  return apiBlob(`/api/v1/reports/${encodeURIComponent(reportId)}/content?format=${format}`);
 }

@@ -62,6 +62,24 @@ paths:
       security: [{ oidc: [report:read] }]
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses: { '200': { description: Report } }
+  /api/v1/reports/{id}/content:
+    get:
+      operationId: getApprovedReportContent
+      description: Returns immutable approved report content. HTML is rendered inside a sandboxed console preview or downloaded by the authorized client.
+      security: [{ oidc: [report:read] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - in: query
+          name: format
+          schema: { type: string, enum: [html, json], default: html }
+      responses:
+        '200':
+          description: Approved immutable report content
+          content:
+            text/html: { schema: { type: string } }
+            application/json: { schema: { type: object } }
+        '404': { description: Report or stored report content not found }
+        '409': { description: Report has not been approved }
   /api/v1/reports/{id}/decisions:
     post:
       operationId: decideReport
