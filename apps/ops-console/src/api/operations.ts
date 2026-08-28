@@ -71,6 +71,11 @@ export function createReport(diagnosisRunId: string) {
   });
 }
 
+/** A key identifies one user-initiated diagnosis run; retries reuse the key in the view. */
+export function createDiagnosisIdempotencyKey(accountId: string, tradeDate: string): string {
+  return `ops-console-${accountId}-${tradeDate}-${crypto.randomUUID()}`;
+}
+
 export function listAuditEvents() {
   return api<AuditEvent[]>('/api/v1/audit-events');
 }

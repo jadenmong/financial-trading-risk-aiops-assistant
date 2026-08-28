@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api/client.js';
-import { createReport } from '../api/operations.js';
+import { createDiagnosisIdempotencyKey, createReport } from '../api/operations.js';
 import { type MessageKey } from '../i18n/index.js';
 import { useI18n } from '../i18n/use-i18n.js';
 import ContentPanel from '../components/ContentPanel.vue';
@@ -17,12 +17,13 @@ const error = ref<MessageKey>();
 const loading = ref(false);
 const { t, enumText } = useI18n();
 const router = useRouter();
+let pendingIdempotencyKey: string | undefined;
 
 async function createDiagnosis() {
   loading.value = true;
   error.value = undefined;
   try {
-    const key = 'ops-console-ACC_ALPHA_01-2026-08-07';
+    const key = pendingIdempotencyKey ??= createDiagnosisIdempotencyKey('ACC_ALPHA_01', '2026-08-07');
     const diagnosis = await api<DiagnosisRun>('/api/v1/diagnoses', {
       method: 'POST',
       headers: { 'Idempotency-Key': key },
@@ -30,6 +31,7 @@ async function createDiagnosis() {
     });
     run.value = diagnosis;
     await createReport(diagnosis.id);
+    pendingIdempotencyKey = undefined;
     await router.push('/reports');
   } catch {
     error.value = 'error.diagnosisFailed';
