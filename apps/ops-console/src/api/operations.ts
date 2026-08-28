@@ -1,4 +1,4 @@
-import { api } from './client.js';
+import { api, createOidcState } from './client.js';
 
 export interface ToolEnvelope<T> {
   ok: boolean;
@@ -73,7 +73,7 @@ export function createReport(diagnosisRunId: string) {
 
 /** A key identifies one user-initiated diagnosis run; retries reuse the key in the view. */
 export function createDiagnosisIdempotencyKey(accountId: string, tradeDate: string): string {
-  return `ops-console-${accountId}-${tradeDate}-${crypto.randomUUID()}`;
+  return `ops-console-${accountId}-${tradeDate}-${createOidcState()}`;
 }
 
 export function listAuditEvents() {
